@@ -15,15 +15,28 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT } from './Grid.js';
     const app = new Application();
 
     await app.init({
-        width:     CANVAS_WIDTH,
-        height:    CANVAS_HEIGHT + UI_HEIGHT, // área de juego + barra HUD
         background: 0x0d1117,
         antialias:  true,
+        resizeTo:   window,
     });
 
-    // Adjuntar el canvas al div contenedor definido en index.ejs
     document.getElementById('pixi-container').appendChild(app.canvas);
 
-    // Crear e iniciar el juego
+    const GAME_WIDTH  = CANVAS_WIDTH;
+    const GAME_HEIGHT = CANVAS_HEIGHT + UI_HEIGHT;
+
+    const resize = () => {
+        const scaleX = app.screen.width  / GAME_WIDTH;
+        const scaleY = app.screen.height / GAME_HEIGHT;
+        const scale  = Math.min(scaleX, scaleY); // mantener proporciones
+
+        app.stage.scale.set(scale);
+        app.stage.x = (app.screen.width  - GAME_WIDTH  * scale) / 2;
+        app.stage.y = (app.screen.height - GAME_HEIGHT * scale) / 2;
+    };
+
+    app.renderer.on('resize', resize);
+    resize();
+
     new Game(app);
 })();
