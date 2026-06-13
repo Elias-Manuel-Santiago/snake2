@@ -13,9 +13,10 @@
 // tick, pero el render interpola la posición entre ticks a 60 fps.
 
 import { Graphics } from 'pixi.js';
-import { Snake, DIRECTION } from './Snake.js';
+import { Snake, DIRECTION, SNAKE_COLORS } from './Snake.js';
 import { Apple }            from './Apple.js';
 import { UI }               from './UI.js';
+import { Menu }             from './Menu.js';
 import {
     GRID_COLS, GRID_ROWS,
     CELL_SIZE,
@@ -28,6 +29,7 @@ import {
 const STATE = {
     PLAYING:   'playing',
     GAME_OVER: 'game_over',
+    MENU:      'menu',
 };
 
 export class Game {
@@ -36,8 +38,9 @@ export class Game {
      */
     constructor(app) {
         this.app   = app;
-        this.state = STATE.PLAYING;
+        this.state = STATE.MENU;
         this.score = 0;
+        this.score2 = 0; // Score del jugador 2 en modo 2P
 
         /**
          * Acumulador de tiempo en milisegundos desde el último tick de lógica.
@@ -48,8 +51,8 @@ export class Game {
         // Registrar los listeners de teclado (solo una vez en toda la vida del juego)
         this.setupInput();
 
-        // Iniciar la primera partida
-        this.start();
+        // Arrancar en el menú de selección de modo
+        this.menu();
 
         // Registrar el loop principal en el ticker de Pixi.
         // Se guarda como arrow function para poder removerlo con exactamente
@@ -60,14 +63,28 @@ export class Game {
 
     // ── Ciclo de vida ─────────────────────────────────────────
 
+    /** Muestra el menú de selección de modo de juego */
+    menu() {
+        this.clearScene();
+        this.state = STATE.MENU;
+
+        this.menuScreen = new Menu(this.app.stage, (mode) => {
+            this.menuScreen.destroy();
+            this.menuScreen = null;
+            if (mode === '1p') this.start();
+            if (mode === '2p') this.start2P();
+        });
+    }
+
     /**
-     * Inicializa (o reinicializa) una partida nueva.
+     * Inicializa (o reinicializa) una partida de 1 jugador.
      * Destruye entidades anteriores, resetea estado y crea todo de cero.
      */
     start() {
         this.clearScene();
 
         this.score             = 0;
+        this.score2            = 0;
         this.timeSinceLastMove = 0;
         this.state             = STATE.PLAYING;
 
@@ -75,7 +92,8 @@ export class Game {
         this.createBackground();
 
         // UI se crea antes que la serpiente para que quede debajo visualmente
-        this.ui = new UI(this.app.stage);
+        // isTwoPlayer = false para modo 1 jugador
+        this.ui = new UI(this.app.stage, false);
 
         // Serpiente centrada en la grilla, con 3 segmentos iniciales
         const startX = Math.floor(GRID_COLS / 2);
@@ -89,17 +107,67 @@ export class Game {
         this.ui.updateScore(this.score);
     }
 
+    /**
+     * Inicializa una partida de 2 jugadores.
+     * Ambas serpientes tienen wrap activado: no colisionan con los bordes
+     * sino que salen por el lado opuesto.
+     * Jugador 1 (verde):  WASD,  arranca en el cuarto izquierdo moviéndose a la derecha.
+     * Jugador 2 (azul):   IJKL,  arranca en el cuarto derecho moviéndose a la izquierda.
+     * Las serpientes sí pueden colisionar entre sí.
+     */
+    start2P() {
+        this.clearScene();
+
+        this.score             = 0;
+        this.score2            = 0;
+        this.timeSinceLastMove = 0;
+        this.state             = STATE.PLAYING;
+
+        // Fondo y grilla se dibujan primero (se agregarán como primer hijo del stage)
+        this.createBackground();
+
+        // UI se crea antes que las serpientes para que quede debajo visualmente
+        // isTwoPlayer = true para modo 2 jugadores
+        this.ui = new UI(this.app.stage, true);
+
+        // Serpiente 1: lado izquierdo, roja
+        this.snake = new Snake(
+            this.app.stage,
+            Math.floor(GRID_COLS / 6),
+            Math.floor(GRID_ROWS / 6),
+            { wrap: true, direction: DIRECTION.RIGHT, colors: SNAKE_COLORS.RED }
+        );
+
+        // Serpiente 2: lado derecho, azul
+        this.snake2 = new Snake(
+            this.app.stage,
+            Math.floor(GRID_COLS * 4 / 5),
+            Math.floor(GRID_ROWS * 4 / 5),
+            { wrap: true, direction: DIRECTION.LEFT, colors: SNAKE_COLORS.BLUE }
+        );
+
+        // Manzana en posición aleatoria (nunca encima de ninguna serpiente)
+        this.apple = new Apple(this.app.stage);
+        this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
+
+        this.ui.updateScores(this.score, this.score2);
+    }
+
     /** Destruye todas las entidades activas y limpia el stage */
     clearScene() {
         if (this.snake)      this.snake.destroy();
+        if (this.snake2)     this.snake2.destroy();
         if (this.apple)      this.apple.destroy();
         if (this.ui)         this.ui.destroy();
         if (this.background) this.background.destroy();
+        if (this.menuScreen) this.menuScreen.destroy();
 
         this.snake      = null;
+        this.snake2     = null;
         this.apple      = null;
         this.ui         = null;
         this.background = null;
+        this.menuScreen = null;
     }
 
     // ── Construcción de la escena ─────────────────────────────
@@ -150,20 +218,60 @@ export class Game {
                 e.preventDefault();
             }
 
-            // Si está en game over, solo SPACE reinicia
+            // Si está en game over, solo SPACE vuelve al menú
             if (this.state === STATE.GAME_OVER) {
-                if (e.code === 'Space') this.start();
+                if (e.code === 'Space') this.menu();
                 return;
             }
 
-            // Direcciones (WASD o flechas)
+            if (this.state !== STATE.PLAYING) return;
+
+            // Jugador 1: WASD o flechas
             switch (e.code) {
-                case 'ArrowUp':    case 'KeyW': this.snake.setDirection(DIRECTION.UP);    break;
-                case 'ArrowDown':  case 'KeyS': this.snake.setDirection(DIRECTION.DOWN);  break;
-                case 'ArrowLeft':  case 'KeyA': this.snake.setDirection(DIRECTION.LEFT);  break;
-                case 'ArrowRight': case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
+                case 'KeyW': this.snake.setDirection(DIRECTION.UP);    break;
+                case 'KeyS': this.snake.setDirection(DIRECTION.DOWN);  break;
+                case 'KeyA': this.snake.setDirection(DIRECTION.LEFT);  break;
+                case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
+            }
+
+            // Jugador 2: IJKL (solo en modo 2 jugadores)
+            if (this.snake2) {
+                switch (e.code) {
+                    case 'KeyI': this.snake2.setDirection(DIRECTION.UP);    break;
+                    case 'KeyK': this.snake2.setDirection(DIRECTION.DOWN);  break;
+                    case 'KeyJ': this.snake2.setDirection(DIRECTION.LEFT);  break;
+                    case 'KeyL': this.snake2.setDirection(DIRECTION.RIGHT); break;
+                }
             }
         });
+
+        // Touch: detectar dirección del swipe (jugador 1 únicamente)
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        window.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+
+            // Ignorar toques que no sean swipes reales
+            if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+
+            if (this.state === STATE.GAME_OVER) { this.menu(); return; }
+            if (this.state !== STATE.PLAYING) return;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Swipe horizontal
+                this.snake.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
+            } else {
+                // Swipe vertical
+                this.snake.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
+            }
+        }, { passive: true });
     }
 
     // ── Loop principal ────────────────────────────────────────
@@ -183,44 +291,95 @@ export class Game {
 
         // Procesar todos los ticks pendientes (por si el frame tardó mucho)
         while (this.timeSinceLastMove >= MOVE_INTERVAL) {
-            this.timeSinceLastMove = 0;
-            this.tick();
+            this.timeSinceLastMove -= MOVE_INTERVAL;
 
-            // Si el tick terminó el juego, salir del loop
-            if (this.state !== STATE.PLAYING) return;
+            // ── TICK DE LÓGICA ────────────────────────────────
+            
+            // Avanzar serpiente(s)
+            const ate1 = this.snake.move(this.apple);
+            if (ate1) this.score++;
+
+            let ate2 = false;
+            if (this.snake2) {
+                ate2 = this.snake2.move(this.apple);
+                if (ate2) this.score2++;
+            }
+
+            // Actualizar HUD si alguien comió
+            if (ate1 || ate2) {
+                if (this.snake2) {
+                    this.ui.updateScores(this.score, this.score2);
+                    this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
+                } else {
+                    this.ui.updateScore(this.score);
+                    this.apple.randomize(this.snake.segments);
+                }
+            }
+
+            // Verificar colisiones
+            if (this.snake2) {
+                // ── MODO 2 JUGADORES ──────────────────────────
+                const head1 = this.snake.segments[0];
+                const head2 = this.snake2.segments[0];
+
+                // REGLA 1: Choque frontal de cabezas directo (se define por manzanas)
+                if (head1.x === head2.x && head1.y === head2.y) {
+                    let winnerText = '';
+                    if (this.score > this.score2) {
+                        winnerText = '¡Ganó el Jugador 1! (Más manzanas)';
+                    } else if (this.score2 > this.score) {
+                        winnerText = '¡Ganó el Jugador 2! (Más manzanas)';
+                    } else {
+                        winnerText = '¡Empate absoluto!';
+                    }
+                    this.state = STATE.GAME_OVER;
+                    this.ui.showGameOver(this.score, winnerText, this.score2);
+                    break;
+                }
+
+                // REGLA 2: Choque contra segmentos de cuerpos (K.O. directo, se ignora score)
+                const j1ChocoCuerpo = this.snake.checkCollision(GRID_COLS, GRID_ROWS, true, this.snake2.segments);
+                const j2ChocoCuerpo = this.snake2.checkCollision(GRID_COLS, GRID_ROWS, true, this.snake.segments);
+
+                if (j1ChocoCuerpo && j2ChocoCuerpo) {
+                    // Ambos se encerraron mutuamente en el mismo tick
+                    let winnerText = this.score === this.score2 ? '¡Empate absoluto!' : 
+                                     (this.score > this.score2 ? '¡Ganó el Jugador 1! (Más manzanas)' : '¡Ganó el Jugador 2! (Más manzanas)');
+                    this.state = STATE.GAME_OVER;
+                    this.ui.showGameOver(this.score, winnerText, this.score2);
+                    break;
+                } 
+                else if (j1ChocoCuerpo) {
+                    // Jugador 1 cometió la falta, gana Jugador 2 por supervivencia
+                    this.state = STATE.GAME_OVER;
+                    this.ui.showGameOver(this.score, '¡Ganó el Jugador 2!', this.score2);
+                    break;
+                } 
+                else if (j2ChocoCuerpo) {
+                    // Jugador 2 cometió la falta, gana Jugador 1 por supervivencia
+                    this.state = STATE.GAME_OVER;
+                    this.ui.showGameOver(this.score, '¡Ganó el Jugador 1!', this.score2);
+                    break;
+                }
+            } else {
+                // ── MODO 1 JUGADOR ────────────────────────────
+                if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false)) {
+                    this.state = STATE.GAME_OVER;
+                    this.ui.showGameOver(this.score);
+                    break;
+                }
+            }
         }
 
-        // Calcular qué tan avanzado estamos dentro del tick actual (0 = recién empezó, 1 = a punto de terminar)
-        const progress = this.timeSinceLastMove / MOVE_INTERVAL;
-
-        // Actualizar posiciones visuales interpoladas
-        this.snake.render(progress);
+        // ── RENDER (Interpolación cuadro a cuadro) ────────────
+        if (this.state === STATE.PLAYING) {
+            const progress = this.timeSinceLastMove / MOVE_INTERVAL;
+            this.snake.render(progress);
+            if (this.snake2) this.snake2.render(progress);
+        }
     }
 
-    /**
-     * Un paso de lógica de juego: mueve la serpiente, evalúa colisiones
-     * y verifica si comió la manzana.
-     * Llamado por update() una vez por MOVE_INTERVAL milisegundos.
-     */
-    tick() {
-        const ateApple = this.snake.move(this.apple);
-
-        if (ateApple) {
-            this.score++;
-            this.ui.updateScore(this.score);
-
-            // Reubicar la manzana en un lugar libre
-            this.apple.randomize(this.snake.segments);
-        }
-
-        // Verificar colisión DESPUÉS de mover (la cabeza ya está en la nueva posición)
-        if (this.snake.checkCollision(GRID_COLS, GRID_ROWS)) {
-            this.state = STATE.GAME_OVER;
-            this.ui.showGameOver(this.score);
-        }
-    }
-
-    /** Limpia todos los recursos cuando el Game ya no se necesita */
+    /** Remueve el loop del ticker al destruir el juego */
     destroy() {
         this.app.ticker.remove(this._onTick);
         this.clearScene();

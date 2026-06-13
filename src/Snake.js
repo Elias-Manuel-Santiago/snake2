@@ -15,7 +15,7 @@
 //   .x e .y, así que los sprites se moverán automáticamente.
 
 import { Graphics, Container } from 'pixi.js';
-import { CELL_SIZE, UI_HEIGHT, lerp } from './Grid.js';
+import { CELL_SIZE, UI_HEIGHT, GRID_COLS, GRID_ROWS, lerp } from './Grid.js';
 
 // ── Direcciones de movimiento ──────────────────────────────
 export const DIRECTION = {
@@ -25,31 +25,45 @@ export const DIRECTION = {
     RIGHT: { x:  1, y:  0 },
 };
 
-// ── Colores de los segmentos (fácil de cambiar o quitar al usar sprites) ──
-const COLOR_HEAD = 0x2ecc71; // verde claro
-const COLOR_BODY = 0x27ae60; // verde oscuro
+// ── Paletas de colores para cada serpiente ──────────────────
+export const SNAKE_COLORS = {
+    GREEN: { head: 0x2ecc71, body: 0x27ae60 },  // verde (jugador 1 por defecto)
+    RED:   { head: 0xe74c3c, body: 0xc0392b }, // rojo (jugador 1 en 2P)
+    BLUE:  { head: 0x3498db, body: 0x2980b9 }, // azul (jugador 2)
+};
 
 export class Snake {
     /**
      * @param {import('pixi.js').Container} stage - Stage principal de Pixi
      * @param {number} startX - Posición inicial en la grilla (columna)
      * @param {number} startY - Posición inicial en la grilla (fila)
+     * @param {{ wrap?: boolean, direction?: object, colors?: object }} options - Opciones de comportamiento
+     * wrap:      si es true, la serpiente sale por el lado opuesto al salir del borde
+     * (usado en modo 2 jugadores). Por defecto false (colisión con bordes).
+     * direction: dirección inicial de movimiento. El cuerpo se genera en la dirección
+     * opuesta para que no haya colisión inmediata. Por defecto DIRECTION.RIGHT.
+     * colors:    objeto con { head, body } para colorear la serpiente. Por defecto GREEN.
      */
-    constructor(stage, startX, startY) {
+    constructor(stage, startX, startY, { wrap = false, direction = DIRECTION.RIGHT, colors = SNAKE_COLORS.GREEN } = {}) {
         /**
          * Array de segmentos, el índice 0 es la cabeza.
          * Cada segmento tiene:
-         *   x, y      → posición lógica actual (grilla)
-         *   prevX, prevY → posición lógica del tick anterior (para lerp)
+         * x, y      → posición lógica actual (grilla)
+         * prevX, prevY → posición lógica del tick anterior (para lerp)
+         *
+         * El cuerpo se genera en la dirección opuesta al movimiento inicial
+         * para evitar colisión consigo misma en el primer tick.
          */
+        const dx = -direction.x;
+        const dy = -direction.y;
         this.segments = [
-            { x: startX,     y: startY, prevX: startX,     prevY: startY },
-            { x: startX - 1, y: startY, prevX: startX - 1, prevY: startY },
-            { x: startX - 2, y: startY, prevX: startX - 2, prevY: startY },
+            { x: startX,           y: startY,           prevX: startX,           prevY: startY },
+            { x: startX + dx,      y: startY + dy,      prevX: startX + dx,      prevY: startY + dy },
+            { x: startX + dx * 2,  y: startY + dy * 2,  prevX: startX + dx * 2,  prevY: startY + dy * 2 },
         ];
 
         /** Dirección actual de movimiento */
-        this.direction = DIRECTION.RIGHT;
+        this.direction = direction;
 
         /**
          * Cola de direcciones para manejar inputs rápidos.
@@ -57,6 +71,15 @@ export class Snake {
          * ambas se procesan en orden sin perderse ninguna.
          */
         this.directionQueue = [];
+
+        /**
+         * Si es true, la serpiente sale por el lado opuesto al tocar un borde
+         * en lugar de morir. Se activa en modo 2 jugadores.
+         */
+        this.wrap = wrap;
+
+        /** Colores de la serpiente */
+        this.colors = colors;
 
         // Contenedor que agrupa todos los gráficos de la serpiente.
         // Agregar efectos o animaciones al contenedor los aplica a todos.
@@ -98,7 +121,7 @@ export class Snake {
     drawSegmentShape(g, isHead, direction = DIRECTION.RIGHT) {
         const size   = isHead ? CELL_SIZE - 2 : CELL_SIZE - 6;
         const radius = isHead ? 8 : 5;
-        const color  = isHead ? COLOR_HEAD : COLOR_BODY;
+        const color  = isHead ? this.colors.head : this.colors.body;
 
         g.clear();
         g.roundRect(-size / 2, -size / 2, size, size, radius);
@@ -163,6 +186,7 @@ export class Snake {
     /**
      * Avanza la serpiente un paso en la grilla.
      * Llamado una vez por tick de juego (no cada frame).
+     * Si this.wrap es true, aplica wrap de bordes en lugar de permitir colisión.
      *
      * @param {import('./Apple.js').Apple} apple - Manzana actual
      * @returns {boolean} true si la serpiente comió la manzana
@@ -177,36 +201,34 @@ export class Snake {
         const newHeadX  = head.x + this.direction.x;
         const newHeadY  = head.y + this.direction.y;
 
-        // Guardar posición de la cola ANTES de mover, para saber dónde
-        // hacer crecer la serpiente si come la manzana en este tick.
         const lastSeg  = this.segments[this.segments.length - 1];
         const oldTailX = lastSeg.x;
         const oldTailY = lastSeg.y;
 
-        // Guardar la posición actual de todos los segmentos como "prev"
-        // (se usará en render() para interpolar la posición visual)
+        // Guardar prev NORMALMENTE
         for (const seg of this.segments) {
             seg.prevX = seg.x;
             seg.prevY = seg.y;
         }
 
-        // Cada segmento toma la posición del segmento que tiene delante
-        // (se recorre de atrás hacia adelante para no sobreescribir datos)
+        // Mover segmentos
         for (let i = this.segments.length - 1; i > 0; i--) {
             this.segments[i].x = this.segments[i - 1].x;
             this.segments[i].y = this.segments[i - 1].y;
         }
 
-        // La cabeza avanza en la dirección actual
-        this.segments[0].x = newHeadX;
-        this.segments[0].y = newHeadY;
+        // Mover cabeza
+        if (this.wrap) {
+            this.segments[0].x = ((newHeadX % GRID_COLS) + GRID_COLS) % GRID_COLS;
+            this.segments[0].y = ((newHeadY % GRID_ROWS) + GRID_ROWS) % GRID_ROWS;
+        } else {
+            this.segments[0].x = newHeadX;
+            this.segments[0].y = newHeadY;
+        }
 
-        // Verificar si la cabeza llegó a la manzana
-        const ateApple = (newHeadX === apple.gridX && newHeadY === apple.gridY);
+        const ateApple = (this.segments[0].x === apple.gridX && this.segments[0].y === apple.gridY);
 
         if (ateApple) {
-            // El nuevo segmento nace en la posición que tenía la cola antes
-            // de moverse, y se queda quieto este tick (prevX = x).
             this.segments.push({
                 x:     oldTailX,
                 y:     oldTailY,
@@ -219,23 +241,38 @@ export class Snake {
         return ateApple;
     }
 
+
     /**
-     * Verifica si la serpiente chocó con los bordes o consigo misma.
+     * Verifica si la serpiente chocó con los bordes, consigo misma,
+     * o con los segmentos de otra serpiente.
+     * Si wrap es true, los bordes no cuentan como colisión.
+     *
      * @param {number} gridCols
      * @param {number} gridRows
+     * @param {boolean} wrap - Si es true, ignora colisión con bordes
+     * @param {Array<{x: number, y: number}>} [otherSegments] - Segmentos de la serpiente rival
      * @returns {boolean} true si hay colisión
      */
-    checkCollision(gridCols, gridRows) {
+    checkCollision(gridCols, gridRows, wrap = false, otherSegments = []) {
         const head = this.segments[0];
 
-        // Colisión con los cuatro bordes
-        if (head.x < 0 || head.x >= gridCols || head.y < 0 || head.y >= gridRows) {
-            return true;
+        // Colisión con los cuatro bordes (solo si no hay wrap)
+        if (!wrap) {
+            if (head.x < 0 || head.x >= gridCols || head.y < 0 || head.y >= gridRows) {
+                return true;
+            }
         }
 
         // Colisión consigo misma (desde el segmento 1 en adelante)
         for (let i = 1; i < this.segments.length; i++) {
             if (head.x === this.segments[i].x && head.y === this.segments[i].y) {
+                return true;
+            }
+        }
+
+        // Colisión con los segmentos de la serpiente rival (modo 2 jugadores)
+        for (const seg of otherSegments) {
+            if (head.x === seg.x && head.y === seg.y) {
                 return true;
             }
         }
@@ -257,9 +294,26 @@ export class Snake {
             const seg = this.segments[i];
             const g   = this.segmentGraphics[i];
 
+            let renderX = seg.x;
+            let renderY = seg.y;
+
+            // Si la distancia entre la posición lógica previa y la actual es mayor a 1,
+            // significa que este segmento en particular cruzó el borde debido al wrap.
+            const crossedX = Math.abs(seg.x - seg.prevX) > 1;
+            const crossedY = Math.abs(seg.y - seg.prevY) > 1;
+
+            // Si el segmento NO cruzó el borde, interpolamos normalmente.
+            // Si SÍ cruzó, evitamos el lerp usando directamente la posición final para que se teletransporte.
+            if (!crossedX) {
+                renderX = lerp(seg.prevX, seg.x, progress);
+            }
+            if (!crossedY) {
+                renderY = lerp(seg.prevY, seg.y, progress);
+            }
+
             // Interpolar la posición en píxeles
-            g.x = lerp(seg.prevX, seg.x, progress) * CELL_SIZE + CELL_SIZE / 2;
-            g.y = lerp(seg.prevY, seg.y, progress) * CELL_SIZE + CELL_SIZE / 2 + UI_HEIGHT;
+            g.x = renderX * CELL_SIZE + CELL_SIZE / 2;
+            g.y = renderY * CELL_SIZE + CELL_SIZE / 2 + UI_HEIGHT;
         }
     }
 
