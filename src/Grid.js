@@ -53,3 +53,16 @@ export function gridToPixelCenter(gridX, gridY) {
         y: gridY * CELL_SIZE + CELL_SIZE / 2 + UI_HEIGHT,
     };
 }
+
+/**
+ * Configuración de los 5 niveles del modo 1 jugador.
+ * applesRequired: manzanas acumuladas para pasar al siguiente nivel.
+ * moveInterval: velocidad del tick en ms (menor = más rápido).
+ */
+export const LEVELS = [
+    { level: 1, applesRequired: 10, moveInterval: 180 },
+    { level: 2, applesRequired: 20, moveInterval: 140 },
+    { level: 3, applesRequired: 30, moveInterval: 100 },
+    { level: 4, applesRequired: 50, moveInterval:  60 },
+    { level: 5, applesRequired: Infinity, moveInterval: 45 },
+];

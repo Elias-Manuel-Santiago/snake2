@@ -23,6 +23,7 @@ import {
     CANVAS_WIDTH, CANVAS_HEIGHT,
     UI_HEIGHT,
     MOVE_INTERVAL,
+    LEVELS,
 } from './Grid.js';
 
 // Estados posibles del juego (agregar más según se necesite, ej. PAUSED)
@@ -31,6 +32,8 @@ const STATE = {
     GAME_OVER: 'game_over',
     MENU:      'menu',
 };
+
+let nivelActual = 0; // nivel 1 por defecto
 
 export class Game {
     /**
@@ -81,30 +84,32 @@ export class Game {
      * Destruye entidades anteriores, resetea estado y crea todo de cero.
      */
     start() {
+        const savedLevel    = this.level ?? 0;
+        const savedScore    = this.score ?? 0;
+        this.levelScore = 0;
+
         this.clearScene();
 
-        this.score             = 0;
+        this.level             = savedLevel;
+        this.score             = savedScore;
         this.score2            = 0;
         this.timeSinceLastMove = 0;
+        this.moveInterval      = LEVELS[this.level].moveInterval;
         this.state             = STATE.PLAYING;
+        this._pendingLevelUp   = false;
 
-        // Fondo y grilla se dibujan primero (se agregarán como primer hijo del stage)
         this.createBackground();
-
-        // UI se crea antes que la serpiente para que quede debajo visualmente
-        // isTwoPlayer = false para modo 1 jugador
         this.ui = new UI(this.app.stage, false);
 
-        // Serpiente centrada en la grilla, con 3 segmentos iniciales
         const startX = Math.floor(GRID_COLS / 2);
         const startY = Math.floor(GRID_ROWS / 2);
         this.snake = new Snake(this.app.stage, startX, startY);
 
-        // Manzana en posición aleatoria (nunca encima de la serpiente)
         this.apple = new Apple(this.app.stage);
         this.apple.randomize(this.snake.segments);
 
         this.ui.updateScore(this.score);
+        this.ui.updateLevel(this.level + 1, 0, LEVELS[this.level].applesRequired);
     }
 
     /**
@@ -290,14 +295,17 @@ export class Game {
         this.timeSinceLastMove += ticker.deltaMS;
 
         // Procesar todos los ticks pendientes (por si el frame tardó mucho)
-        while (this.timeSinceLastMove >= MOVE_INTERVAL) {
-            this.timeSinceLastMove -= MOVE_INTERVAL;
+        while (this.timeSinceLastMove >= this.moveInterval) {
+            this.timeSinceLastMove -= this.moveInterval;
 
             // ── TICK DE LÓGICA ────────────────────────────────
             
             // Avanzar serpiente(s)
             const ate1 = this.snake.move(this.apple);
-            if (ate1) this.score++;
+            if (ate1) {
+                this.score++;
+                this.levelScore++;
+            }
 
             let ate2 = false;
             if (this.snake2) {
@@ -312,6 +320,14 @@ export class Game {
                     this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
                 } else {
                     this.ui.updateScore(this.score);
+
+                    const nextLevel = this.level + 1;
+                    if (nextLevel < LEVELS.length && this.levelScore >= LEVELS[this.level].applesRequired) {
+                        this.level = nextLevel;
+                        this._pendingLevelUp = true;
+                    }
+
+                    this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
                     this.apple.randomize(this.snake.segments);
                 }
             }
@@ -369,11 +385,16 @@ export class Game {
                     break;
                 }
             }
+            // Diferir el reinicio de nivel al siguiente frame para no romper el tick actual
+            if (this._pendingLevelUp) {
+                this.start();
+                return;
+            }
         }
 
         // ── RENDER (Interpolación cuadro a cuadro) ────────────
         if (this.state === STATE.PLAYING) {
-            const progress = this.timeSinceLastMove / MOVE_INTERVAL;
+            const progress = this.timeSinceLastMove / this.moveInterval;
             this.snake.render(progress);
             if (this.snake2) this.snake2.render(progress);
         }

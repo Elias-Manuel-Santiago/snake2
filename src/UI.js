@@ -66,7 +66,22 @@ export class UI {
             helpText.x = CANVAS_WIDTH - 12;
             helpText.y = UI_HEIGHT / 2;
             this.hudContainer.addChild(helpText);
-        } else {
+
+            this.levelText = new Text({
+                text: 'Nivel 1  0/5',
+                style: {
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    fill: 0x2ecc71,
+                },
+            });
+            this.levelText.anchor.set(0.5, 0.5);
+            this.levelText.x = CANVAS_WIDTH / 2;
+            this.levelText.y = UI_HEIGHT / 2;
+            this.hudContainer.addChild(this.levelText);
+        } 
+        else {
             // ── MODO 2 JUGADORES ──────────────────────────────
 
             // ── Score Jugador 1 (izquierda, verde) ────
@@ -200,6 +215,12 @@ export class UI {
     updateScore(score) {
         if (!this.isTwoPlayer && this.scoreText) {
             this.scoreText.text = `🍎 ${score}`;
+        }
+    }
+
+    updateLevel(level, current, required) {
+        if (!this.isTwoPlayer && this.levelText) {
+            this.levelText.text = `Nivel ${level}  ${current}/${required === Infinity ? '-' : required}`;
         }
     }
 
