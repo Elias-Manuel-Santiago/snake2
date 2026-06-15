@@ -87,26 +87,23 @@ export class Game {
      * Destruye entidades anteriores, resetea estado y crea todo de cero.
      */
     start() {
-        const savedLevel = this.level ?? 0;
-        const savedScore = this.score ?? 0;
         this.levelScore = 0;
 
         this.clearScene();
-
-        this.level = savedLevel;
-        this.score = savedScore;
-        this.score2 = 0;
-        this.timeSinceLastMove = 0;
-        this.moveInterval = LEVELS[this.level].moveInterval;
+        this.level = 0;
+        this.score = 0;
         this.state = STATE.PLAYING;
-        this._pendingLevelUp = false;
 
         this.createBackground();
         this.ui = new UI(this.app.stage, false);
 
         const startX = Math.floor(GRID_COLS / 2);
         const startY = Math.floor(GRID_ROWS / 2);
-        this.snake = new Snake(this.app.stage, startX, startY);
+
+        // Enviamos el intervalo del nivel a la serpiente
+        this.snake = new Snake(this.app.stage, startX, startY, {
+            moveInterval: LEVELS[this.level].moveInterval
+        });
 
         this.apple = new Apple(this.app.stage);
         this.apple.randomize(this.snake.segments);
@@ -128,39 +125,33 @@ export class Game {
 
         this.score = 0;
         this.score2 = 0;
-        this.timeSinceLastMove = 0;
         this.state = STATE.PLAYING;
-        this.moveInterval = LEVELS[0].moveInterval;
 
-        // Fondo y grilla se dibujan primero (se agregarán como primer hijo del stage)
         this.createBackground();
-
-        // UI se crea antes que las serpientes para que quede debajo visualmente
-        // isTwoPlayer = true para modo 2 jugadores
         this.ui = new UI(this.app.stage, true);
 
-        // Serpiente 1: lado izquierdo, roja
+        // Serpiente 1: Velocidad normal (200ms por celda)
         this.snake = new Snake(
             this.app.stage,
             Math.floor(GRID_COLS / 6),
             Math.floor(GRID_ROWS / 6),
-            { wrap: true, direction: DIRECTION.RIGHT, colors: SNAKE_COLORS.RED }
+            { wrap: true, direction: DIRECTION.RIGHT, colors: SNAKE_COLORS.RED, moveInterval: 150 }
         );
 
-        // Serpiente 2: lado derecho, azul
+        // Serpiente 2: ¡Velocidad aumentada! (150ms por celda)
         this.snake2 = new Snake(
             this.app.stage,
             Math.floor(GRID_COLS * 4 / 5),
             Math.floor(GRID_ROWS * 4 / 5),
-            { wrap: true, direction: DIRECTION.LEFT, colors: SNAKE_COLORS.BLUE }
+            { wrap: true, direction: DIRECTION.LEFT, colors: SNAKE_COLORS.BLUE, moveInterval: 150 }
         );
 
-        // Manzana en posición aleatoria (nunca encima de ninguna serpiente)
         this.apple = new Apple(this.app.stage);
         this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
 
         this.ui.updateScores(this.score, this.score2);
     }
+
 
     /** Destruye todas las entidades activas y limpia el stage */
     clearScene() {
@@ -243,6 +234,11 @@ export class Game {
                 case 'KeyS': this.snake.setDirection(DIRECTION.DOWN); break;
                 case 'KeyA': this.snake.setDirection(DIRECTION.LEFT); break;
                 case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
+                case 'ShiftLeft':
+                    if (this.snake) {
+                        this.snake.dash = true;
+                    }
+                    break;
             }
 
             // Jugador 2: IJKL (solo en modo 2 jugadores)
@@ -252,8 +248,23 @@ export class Game {
                     case 'KeyK': this.snake2.setDirection(DIRECTION.DOWN); break;
                     case 'KeyJ': this.snake2.setDirection(DIRECTION.LEFT); break;
                     case 'KeyL': this.snake2.setDirection(DIRECTION.RIGHT); break;
+                    case 'KeyB': this.snake2.dash = true; break;
                 }
             }
+            console.log(e.code);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (this.snake2) {
+                switch (e.code) {
+                    case 'ShiftLeft': this.snake.dash = false; break;
+                }
+                switch (e.code) {
+                    case 'KeyB': this.snake2.dash = false; break;
+                }
+            }
+            console.log(e.code);
+
         });
 
         // Touch: detectar dirección del swipe (jugador 1 únicamente)
@@ -297,129 +308,142 @@ export class Game {
      */
     update(ticker) {
         if (this.state !== STATE.PLAYING) return;
-        this.timeSinceLastMove += ticker.deltaMS;
-        let progress;
 
-        // Procesar todos los ticks pendientes (Lógica pura)
-        while (this.timeSinceLastMove >= this.moveInterval) {
-
-            this.timeSinceLastMove -= this.moveInterval;
-
-            // Avanzar serpiente(s)
-            this.snake.move();
-            if (this.snake2) {
-                this.snake2.move();
-            }
+        // 1. ACTUALIZACIÓN DE TIEMPOS INDEPENDIENTES (Lógica)
+        this.snake.updateTick(ticker.deltaMS);
+        if (this.snake2) {
+            this.snake2.updateTick(ticker.deltaMS);
         }
 
-        // Recalculamos el progreso final para el render y las colisiones de este frame
-        progress = this.timeSinceLastMove / this.moveInterval;
+        // Recuperamos el progreso de cada una para evaluar colisiones y renderizado
+        const p1 = this.snake.currentProgress;
+        const p2 = this.snake2 ? this.snake2.currentProgress : 0;
 
-
-        // ── VERIFICACIÓN DE COLISIONES INTERPOLADAS (CADA FRAME) ────────────────
+        // 2. VERIFICACIÓN DE COLISIONES INTERPOLADAS
         if (this.state === STATE.PLAYING) {
             let ate1 = false;
             let ate2 = false;
-            if (this.snake.checkCollisionApple(this.apple, progress)) {
+
+            // Cada una evalúa la manzana usando su propio progreso visual
+            if (this.snake.checkCollisionApple(this.apple, p1)) {
                 ate1 = true;
                 this.score++;
                 this.levelScore++;
             }
-            if (this.snake2) {
-                if (this.snake2.checkCollisionApple(this.apple, progress)) {
-                    ate2 = true;
-                    this.score2++;
-                }
+            if (this.snake2 && this.snake2.checkCollisionApple(this.apple, p2)) {
+                ate2 = true;
+                this.score2++;
             }
 
-        // Actualizar HUD si alguien comió
-        if (ate1 || ate2) {
-            if (this.snake2) {
-                this.ui.updateScores(this.score, this.score2);
-                this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
-            } else {
-                this.ui.updateScore(this.score);
-
-                const nextLevel = this.level + 1; 
-                if(this.levelScore >= LEVELS[this.level].applesRequired){
-                    this.level = nextLevel;
-                    this._pendingLevelUp = true;
-                }
-
-                this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
-                this.apple.randomize(this.snake.segments);
-            }
-        }
-        if (this.snake2) {
-            // ── MODO 2 JUGADORES ──────────────────────────
-            const head1Pos = this.snake.getInterPos(progress, this.snake.segments[0]);
-            const head2Pos = this.snake2.getInterPos(progress, this.snake2.segments[0]);
-
-            // REGLA 1: Choque frontal de cabezas directo (Usando distancia interpolada de las cabezas)
-            const dx = head1Pos.x - head2Pos.x;
-            const dy = head1Pos.y - head2Pos.y;
-            const distCabezas = dx * dx + dy * dy;
-            const umbralCabezas = 0.6; // Tolerancia de choque frontal
-
-            if (distCabezas < umbralCabezas * umbralCabezas) {
-                let winnerText = '';
-                if (this.score > this.score2) {
-                    winnerText = '¡Ganó el Jugador 1! (Más manzanas)';
-                } else if (this.score2 > this.score) {
-                    winnerText = '¡Ganó el Jugador 2! (Más manzanas)';
+            // Actualizar HUD si alguien comió
+            if (ate1 || ate2) {
+                if (this.snake2) {
+                    this.ui.updateScores(this.score, this.score2);
+                    this.apple.randomize([...this.snake.segments, ...this.snake2.segments]);
                 } else {
-                    winnerText = '¡Empate absoluto!';
+                    this.ui.updateScore(this.score);
+
+                    // LEVEL UP!!!!!
+                    const nextLevel = this.level + 1;
+                    if (this.levelScore >= LEVELS[this.level].applesRequired) {
+                        this.level = nextLevel;
+                        this.snake.moveInterval = LEVELS[this.level].moveInterval;
+                    }
+
+                    this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
+                    this.apple.randomize(this.snake.segments);
                 }
-                this.state = STATE.GAME_OVER;
-                this.ui.showGameOver(this.score, winnerText, this.score2);
             }
 
-            // REGLA 2: Choque contra segmentos de cuerpos (K.O. directo, pasando el progress)
-            if (this.state === STATE.PLAYING) {
-                const j1ChocoCuerpo = this.snake.checkCollision(GRID_COLS, GRID_ROWS, true, this.snake2.segments, progress);
-                const j2ChocoCuerpo = this.snake2.checkCollision(GRID_COLS, GRID_ROWS, true, this.snake.segments, progress);
+            if (this.snake2) {
+                // ── MODO 2 JUGADORES (Velocidades Desincronizadas) ──
+                // Obtenemos posiciones interpoladas combinando los progresos de cada una
+                const head1Pos = this.snake.getInterPos(p1, this.snake.segments[0]);
+                const head2Pos = this.snake2.getInterPos(p2, this.snake2.segments[0]);
 
-                if (j1ChocoCuerpo && j2ChocoCuerpo) {
-                    let winnerText = this.score === this.score2 ? '¡Empate absoluto!' :
-                        (this.score > this.score2 ? '¡Ganó el Jugador 1! (Más manzanas)' : '¡Ganó el Jugador 2! (Más manzanas)');
+                // REGLA 1: Choque frontal de cabezas directo
+                const dx = head1Pos.x - head2Pos.x;
+                const dy = head1Pos.y - head2Pos.y;
+                const distCabezas = dx * dx + dy * dy;
+                const umbralCabezas = 0.6;
+
+                if (distCabezas < umbralCabezas * umbralCabezas) {
+                    let winnerText = '';
+                    if (this.score > this.score2) winnerText = '¡Ganó el Jugador 1! (Más manzanas)';
+                    else if (this.score2 > this.score) winnerText = '¡Ganó el Jugador 2! (Más manzanas)';
+                    else winnerText = '¡Empate absoluto!';
+
                     this.state = STATE.GAME_OVER;
                     this.ui.showGameOver(this.score, winnerText, this.score2);
                 }
-                else if (j1ChocoCuerpo) {
-                    this.state = STATE.GAME_OVER;
-                    this.ui.showGameOver(this.score, '¡Ganó el Jugador 2!', this.score2);
+
+                // REGLA 2: Choque contra segmentos de cuerpos desincronizados
+                if (this.state === STATE.PLAYING) {
+                    // Para J1 chocando a J2: usamos el progreso de J1 para su cabeza y el progreso de J2 para los segmentos de la rival
+                    const j1ChocoCuerpo = this.snake.checkCollision(GRID_COLS, GRID_ROWS, true, this.snake2.segments, p1);
+                    // Modificamos ligeramente checkCollision internamente pasándole p2 al cuerpo rival si fuera necesario, 
+                    // pero al usar getInterPos con el progreso adecuado funciona perfecto.
+
+                    // J1 calcula su colisión contra el cuerpo de J2 usando el progreso de J2
+                    let j1ChocoRival = false;
+                    const toleranciaCuadrado = 0.25; // 0.5 * 0.5
+                    for (let i = 0; i < this.snake2.segments.length; i++) {
+                        const segPos = this.snake2.getInterPos(p2, this.snake2.segments[i]);
+                        const dist = (head1Pos.x - segPos.x) ** 2 + (head1Pos.y - segPos.y) ** 2;
+                        if (dist < toleranciaCuadrado) j1ChocoRival = true;
+                    }
+
+                    // J2 calcula su colisión contra el cuerpo de J1 usando el progreso de J1
+                    let j2ChocoRival = false;
+                    for (let i = 0; i < this.snake.segments.length; i++) {
+                        const segPos = this.snake.getInterPos(p1, this.snake.segments[i]);
+                        const dist = (head2Pos.x - segPos.x) ** 2 + (head2Pos.y - segPos.y) ** 2;
+                        if (dist < toleranciaCuadrado) j2ChocoRival = true;
+                    }
+
+                    // Colisiones auto-infligidas tradicionales de grilla
+                    const j1ChocoMismo = this.snake.segments.slice(1).some(seg => this.snake.segments[0].x === seg.x && this.snake.segments[0].y === seg.y);
+                    const j2ChocoMismo = this.snake2.segments.slice(1).some(seg => this.snake2.segments[0].x === seg.x && this.snake2.segments[0].y === seg.y);
+
+                    const p1Perdio = j1ChocoRival || j1ChocoMismo;
+                    const p2Perdio = j2ChocoRival || j2ChocoMismo;
+
+                    if (p1Perdio && p2Perdio) {
+                        let winnerText = this.score === this.score2 ? '¡Empate absoluto!' :
+                            (this.score > this.score2 ? '¡Ganó el Jugador 1! (Más manzanas)' : '¡Ganó el Jugador 2! (Más manzanas)');
+                        this.state = STATE.GAME_OVER;
+                        this.ui.showGameOver(this.score, winnerText, this.score2);
+                    }
+                    else if (p1Perdio) {
+                        this.state = STATE.GAME_OVER;
+                        this.ui.showGameOver(this.score, '¡Ganó el Jugador 2!', this.score2);
+                    }
+                    else if (p2Perdio) {
+                        this.state = STATE.GAME_OVER;
+                        this.ui.showGameOver(this.score, '¡Ganó el Jugador 1!', this.score2);
+                    }
                 }
-                else if (j2ChocoCuerpo) {
+            } else {
+                // ── MODO 1 JUGADOR ────────────────────────────
+                if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, [], p1)) {
                     this.state = STATE.GAME_OVER;
-                    this.ui.showGameOver(this.score, '¡Ganó el Jugador 1!', this.score2);
+                    this.ui.showGameOver(this.score);
                 }
             }
-        } else {
-            // ── MODO 1 JUGADOR ────────────────────────────
-            // Ahora el modo de un jugador también evalúa colisión consigo mismo de forma fluida
-            if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, [], progress)) {
-                this.state = STATE.GAME_OVER;
-                this.ui.showGameOver(this.score);
-            }
+        }
+
+        // 3. RENDER (Cada serpiente interpola con su propio progreso de tiempo)
+        if (this.state === STATE.PLAYING) {
+            this.snake.render(p1);
+            if (this.snake2) this.snake2.render(p2);
         }
     }
 
-    // Diferir el reinicio de nivel al siguiente frame para no romper el tick actual
-    if(this._pendingLevelUp) {
-        this.start();
-        return;
-    }
 
-    // ── RENDER (Interpolación cuadro a cuadro) ────────────
-    if(this.state === STATE.PLAYING) {
-    this.snake.render(progress);
-    if (this.snake2) this.snake2.render(progress);
-}
-    }
 
-/** Remueve el loop del ticker al destruir el juego */
-destroy() {
-    this.app.ticker.remove(this._onTick);
-    this.clearScene();
-}
+    /** Remueve el loop del ticker al destruir el juego */
+    destroy() {
+        this.app.ticker.remove(this._onTick);
+        this.clearScene();
+    }
 }

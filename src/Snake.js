@@ -44,7 +44,7 @@ export class Snake {
      * opuesta para que no haya colisión inmediata. Por defecto DIRECTION.RIGHT.
      * colors:    objeto con { head, body } para colorear la serpiente. Por defecto GREEN.
      */
-    constructor(stage, startX, startY, { wrap = false, direction = DIRECTION.RIGHT, colors = SNAKE_COLORS.GREEN } = {}) {
+    constructor(stage, startX, startY, { wrap = false, direction = DIRECTION.RIGHT, colors = SNAKE_COLORS.GREEN, moveInterval } = {}) {
         /**
          * Array de segmentos, el índice 0 es la cabeza.
          * Cada segmento tiene:
@@ -71,6 +71,17 @@ export class Snake {
          * ambas se procesan en orden sin perderse ninguna.
          */
         this.directionQueue = [];
+
+        this.dashTickCount = 0; //Cada dos ticks pierde una cola;
+
+
+        this.moveInterval = moveInterval;
+        this.timeSinceLastMove = 0;
+        /** Almacena el progreso de interpolación exacto de esta serpiente */
+        this.currentProgress = 0;
+
+
+        this.dash = false;
 
         /**
          * Si es true, la serpiente sale por el lado opuesto al tocar un borde
@@ -194,6 +205,20 @@ export class Snake {
      * @returns {boolean} true si la serpiente comió la manzana
      */
     move() {
+
+        if (this.dash && this.segments.length > 3) {
+            this.moveInterval = 80;
+            this.dashTickCount++; 
+            // Cada 4 ticks exactos de movimiento pierde cola
+            if (this.dashTickCount % 4 === 0) {
+                this.perderCola();
+            }
+        } else {
+            this.moveInterval = 150;
+            this.dashTickCount = 0;
+        }
+
+
         if (this.directionQueue.length > 0) {
             this.direction = this.directionQueue.shift();
             this.drawSegmentShape(this.segmentGraphics[0], true, this.direction);
@@ -323,6 +348,31 @@ export class Snake {
         const y = crossedY ? seg.y : lerp(seg.prevY, seg.y, progress);
 
         return { x, y };
+    }
+
+    updateTick(deltaMS) {
+        this.timeSinceLastMove += deltaMS;
+
+
+        while (this.timeSinceLastMove >= this.moveInterval) {
+            this.timeSinceLastMove -= this.moveInterval;
+            this.move(); // Llama a tu método move() existente de la grilla
+        }
+
+        // Calculamos y guardamos el progreso de interpolación específico de ESTA serpiente
+        this.currentProgress = this.timeSinceLastMove / this.moveInterval;
+    }
+
+
+    perderCola() {
+        console.log('cola perdida');
+        this.segments.pop();
+        const cola = this.segmentGraphics.pop();
+        if (cola) {
+            this.container.removeChild(cola);
+            cola.destroy();
+        }
+
     }
 
     // ── Render ────────────────────────────────────────────────
