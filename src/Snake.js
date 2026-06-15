@@ -19,17 +19,17 @@ import { CELL_SIZE, UI_HEIGHT, GRID_COLS, GRID_ROWS, lerp } from './Grid.js';
 
 // ── Direcciones de movimiento ──────────────────────────────
 export const DIRECTION = {
-    UP:    { x:  0, y: -1 },
-    DOWN:  { x:  0, y:  1 },
-    LEFT:  { x: -1, y:  0 },
-    RIGHT: { x:  1, y:  0 },
+    UP: { x: 0, y: -1 },
+    DOWN: { x: 0, y: 1 },
+    LEFT: { x: -1, y: 0 },
+    RIGHT: { x: 1, y: 0 },
 };
 
 // ── Paletas de colores para cada serpiente ──────────────────
 export const SNAKE_COLORS = {
     GREEN: { head: 0x2ecc71, body: 0x27ae60 },  // verde (jugador 1 por defecto)
-    RED:   { head: 0xe74c3c, body: 0xc0392b }, // rojo (jugador 1 en 2P)
-    BLUE:  { head: 0x3498db, body: 0x2980b9 }, // azul (jugador 2)
+    RED: { head: 0xe74c3c, body: 0xc0392b }, // rojo (jugador 1 en 2P)
+    BLUE: { head: 0x3498db, body: 0x2980b9 }, // azul (jugador 2)
 };
 
 export class Snake {
@@ -57,9 +57,9 @@ export class Snake {
         const dx = -direction.x;
         const dy = -direction.y;
         this.segments = [
-            { x: startX,           y: startY,           prevX: startX,           prevY: startY },
-            { x: startX + dx,      y: startY + dy,      prevX: startX + dx,      prevY: startY + dy },
-            { x: startX + dx * 2,  y: startY + dy * 2,  prevX: startX + dx * 2,  prevY: startY + dy * 2 },
+            { x: startX, y: startY, prevX: startX, prevY: startY },
+            { x: startX + dx, y: startY + dy, prevX: startX + dx, prevY: startY + dy },
+            { x: startX + dx * 2, y: startY + dy * 2, prevX: startX + dx * 2, prevY: startY + dy * 2 },
         ];
 
         /** Dirección actual de movimiento */
@@ -85,6 +85,7 @@ export class Snake {
         // Agregar efectos o animaciones al contenedor los aplica a todos.
         this.container = new Container();
         stage.addChild(this.container);
+        this.container.zIndex = 3;
 
         this.segmentGraphics = [];
         for (let i = 0; i < this.segments.length; i++) {
@@ -104,6 +105,7 @@ export class Snake {
      */
     addSegmentGraphic(isHead) {
         const g = new Graphics();
+
         this.drawSegmentShape(g, isHead, this.direction);
         this.container.addChild(g);
         this.segmentGraphics.push(g);
@@ -119,9 +121,9 @@ export class Snake {
      * @param {boolean} isHead
      */
     drawSegmentShape(g, isHead, direction = DIRECTION.RIGHT) {
-        const size   = isHead ? CELL_SIZE - 2 : CELL_SIZE - 6;
+        const size = isHead ? CELL_SIZE - 2 : CELL_SIZE - 6;
         const radius = isHead ? 8 : 5;
-        const color  = isHead ? this.colors.head : this.colors.body;
+        const color = isHead ? this.colors.head : this.colors.body;
 
         g.clear();
         g.roundRect(-size / 2, -size / 2, size, size, radius);
@@ -139,16 +141,16 @@ export class Snake {
      * @param {Graphics} g
      */
     drawEyes(g, direction) {
-        const eyeRadius  = 3;
+        const eyeRadius = 3;
         const eyeForward = 6;
-        const eyeSpread  = 5;
+        const eyeSpread = 5;
 
         // Centro de los ojos desplazado en la dirección de movimiento.
         // El perpendicular al vector dirección separa los dos ojos.
-        const fx =  direction.x * eyeForward;
-        const fy =  direction.y * eyeForward;
+        const fx = direction.x * eyeForward;
+        const fy = direction.y * eyeForward;
         const px = -direction.y * eyeSpread / 2;
-        const py =  direction.x * eyeSpread / 2;
+        const py = direction.x * eyeSpread / 2;
 
         g.circle(fx + px, fy + py, eyeRadius);
         g.fill(0xffffff);
@@ -176,7 +178,7 @@ export class Snake {
             : this.direction;
 
         const isOpposite = (newDir.x === -lastDir.x && newDir.y === -lastDir.y);
-        const isSame     = (newDir.x ===  lastDir.x && newDir.y ===  lastDir.y);
+        const isSame = (newDir.x === lastDir.x && newDir.y === lastDir.y);
 
         if (!isOpposite && !isSame && this.directionQueue.length < 1) {
             this.directionQueue.push(newDir);
@@ -191,17 +193,17 @@ export class Snake {
      * @param {import('./Apple.js').Apple} apple - Manzana actual
      * @returns {boolean} true si la serpiente comió la manzana
      */
-    move(apple) {
+    move() {
         if (this.directionQueue.length > 0) {
             this.direction = this.directionQueue.shift();
             this.drawSegmentShape(this.segmentGraphics[0], true, this.direction);
         }
 
-        const head      = this.segments[0];
-        const newHeadX  = head.x + this.direction.x;
-        const newHeadY  = head.y + this.direction.y;
+        const head = this.segments[0];
+        const newHeadX = head.x + this.direction.x;
+        const newHeadY = head.y + this.direction.y;
 
-        const lastSeg  = this.segments[this.segments.length - 1];
+        const lastSeg = this.segments[this.segments.length - 1];
         const oldTailX = lastSeg.x;
         const oldTailY = lastSeg.y;
 
@@ -225,20 +227,6 @@ export class Snake {
             this.segments[0].x = newHeadX;
             this.segments[0].y = newHeadY;
         }
-
-        const ateApple = (this.segments[0].x === apple.gridX && this.segments[0].y === apple.gridY);
-
-        if (ateApple) {
-            this.segments.push({
-                x:     oldTailX,
-                y:     oldTailY,
-                prevX: oldTailX,
-                prevY: oldTailY,
-            });
-            this.addSegmentGraphic(false);
-        }
-
-        return ateApple;
     }
 
 
@@ -253,15 +241,21 @@ export class Snake {
      * @param {Array<{x: number, y: number}>} [otherSegments] - Segmentos de la serpiente rival
      * @returns {boolean} true si hay colisión
      */
-    checkCollision(gridCols, gridRows, wrap = false, otherSegments = []) {
+    checkCollision(gridCols, gridRows, wrap = false, otherSegments = [], progress) {
         const head = this.segments[0];
+        // Obtenemos la posición interpolada exacta de la cabeza en este frame
+        const headPos = this.getInterPos(progress, head);
 
-        // Colisión con los cuatro bordes (solo si no hay wrap)
+        // 1. Colisión con los cuatro bordes (basada en grilla lógica, ya que el borde es fijo)
         if (!wrap) {
             if (head.x < 0 || head.x >= gridCols || head.y < 0 || head.y >= gridRows) {
                 return true;
             }
         }
+
+        // Definimos un umbral de tolerancia para el choque de cuerpos (ej. media celda)
+        const tolerancia = 0.5;
+        const toleranciaCuadrado = tolerancia * tolerancia;
 
         // Colisión consigo misma (desde el segmento 1 en adelante)
         for (let i = 1; i < this.segments.length; i++) {
@@ -270,14 +264,65 @@ export class Snake {
             }
         }
 
-        // Colisión con los segmentos de la serpiente rival (modo 2 jugadores)
-        for (const seg of otherSegments) {
-            if (head.x === seg.x && head.y === seg.y) {
+        // 3. Colisión con los segmentos de la serpiente rival (modo 2 jugadores)
+        for (let i = 0; i < otherSegments.length; i++) {
+            // Manejo de wrap visual: Si la serpiente rival cruzó el mapa, su interpolación cambia.
+            // getInterPos ya se encarga de calcular la posición lerp estándar.
+            const segPos = this.getInterPos(progress, otherSegments[i]);
+            const dx = headPos.x - segPos.x;
+            const dy = headPos.y - segPos.y;
+
+            const distSquared = dx * dx + dy * dy;
+
+            if (distSquared < toleranciaCuadrado) {
+
                 return true;
             }
         }
 
-        return false;
+        return false
+    }
+
+
+    checkCollisionApple(apple, progress) {
+        const segPos = this.getInterPos(progress, this.segments[0]);
+        const dx = segPos.x - apple.gridX;
+        const dy = segPos.y - apple.gridY;
+        const distSquared = dx * dx + dy * dy;
+
+        const tolerancia = 0.5;
+
+        if (distSquared < tolerancia * tolerancia) {
+            this.growSnake();
+            return true;
+        }
+
+    }
+
+    growSnake() {
+        const lastSeg = this.segments[this.segments.length - 1];
+        const oldTailX = lastSeg.x;
+        const oldTailY = lastSeg.y;
+
+
+        this.segments.push({
+            x: oldTailX,
+            y: oldTailY,
+            prevX: oldTailX,
+            prevY: oldTailY,
+        });
+        this.addSegmentGraphic(false);
+    }
+
+
+    getInterPos(progress, seg) {
+        const crossedX = Math.abs(seg.x - seg.prevX) > 1;
+        const crossedY = Math.abs(seg.y - seg.prevY) > 1;
+
+        const x = crossedX ? seg.x : lerp(seg.prevX, seg.x, progress);
+        const y = crossedY ? seg.y : lerp(seg.prevY, seg.y, progress);
+
+        return { x, y };
     }
 
     // ── Render ────────────────────────────────────────────────
@@ -292,7 +337,7 @@ export class Snake {
     render(progress) {
         for (let i = 0; i < this.segments.length; i++) {
             const seg = this.segments[i];
-            const g   = this.segmentGraphics[i];
+            const g = this.segmentGraphics[i];
 
             let renderX = seg.x;
             let renderY = seg.y;

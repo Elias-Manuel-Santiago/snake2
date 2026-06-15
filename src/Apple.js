@@ -26,6 +26,7 @@ export class Apple {
         // Dibujar la manzana centrada en el origen (0,0).
         // Se posiciona moviendo el objeto, no redibujando.
         this.graphics = new Graphics();
+        this.graphics.zIndex = 2;
         this.graphics.circle(0, 0, CELL_SIZE / 2 - 3);
         this.graphics.fill(0xe74c3c); // rojo manzana
 

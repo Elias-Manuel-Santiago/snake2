@@ -38,7 +38,7 @@ export class UI {
 
         if (!isTwoPlayer) {
             // ── MODO 1 JUGADOR ────────────────────────────────
-            
+
             // Texto del contador de manzanas
             this.scoreText = new Text({
                 text: '🍎 0',
@@ -80,7 +80,7 @@ export class UI {
             this.levelText.x = CANVAS_WIDTH / 2;
             this.levelText.y = UI_HEIGHT / 2;
             this.hudContainer.addChild(this.levelText);
-        } 
+        }
         else {
             // ── MODO 2 JUGADORES ──────────────────────────────
 
@@ -133,6 +133,7 @@ export class UI {
         this.gameOverContainer = new Container();
         this.gameOverContainer.visible = false;
         stage.addChild(this.gameOverContainer);
+        this.gameOverContainer.zIndex = 10;
 
         // Fondo semitransparente que cubre solo el área de juego
         const overlayBg = new Graphics();
@@ -245,13 +246,13 @@ export class UI {
      */
     showGameOver(score, winner = '', score2 = null) {
         this.winnerText.text = winner;
-        
+
         if (this.isTwoPlayer && score2 !== null) {
             this.finalScoreText.text = `J1: ${score} manzanas  |  J2: ${score2} manzanas`;
         } else {
             this.finalScoreText.text = `Manzanas comidas: ${score}`;
         }
-        
+
         // Empuja el contenedor de Game Over al final de la lista de hijos del stage,
         // asegurando que se dibuje por encima de las serpientes u otros elementos dinámicos.
         if (this.gameOverContainer.parent) {

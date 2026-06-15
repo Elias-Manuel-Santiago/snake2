@@ -29,7 +29,7 @@ export default (_env, argv) => {
         },
         progress: true,
       },
-      port: 5143,
+      port: 3000,
       host: "0.0.0.0",
     },
 
