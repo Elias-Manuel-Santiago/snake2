@@ -235,7 +235,7 @@ export class Game {
                 case 'KeyA': this.snake.setDirection(DIRECTION.LEFT); break;
                 case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
                 case 'ShiftLeft':
-                    if (this.snake) {
+                    if (this.snake2) {
                         this.snake.dash = true;
                     }
                     break;
@@ -347,6 +347,7 @@ export class Game {
                     const nextLevel = this.level + 1;
                     if (this.levelScore >= LEVELS[this.level].applesRequired) {
                         this.level = nextLevel;
+                        this.levelScore = 0;
                         this.snake.moveInterval = LEVELS[this.level].moveInterval;
                     }
 

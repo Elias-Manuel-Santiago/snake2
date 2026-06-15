@@ -213,7 +213,7 @@ export class Snake {
             if (this.dashTickCount % 4 === 0) {
                 this.perderCola();
             }
-        } else {
+        } else if(this.wrap){
             this.moveInterval = 150;
             this.dashTickCount = 0;
         }
