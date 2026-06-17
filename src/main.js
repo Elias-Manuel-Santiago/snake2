@@ -10,6 +10,8 @@
 import { Application } from 'pixi.js';
 import { Game }        from './Game.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT } from './Grid.js';
+import './style.css';
+
 
 (async () => {
     const app = new Application();
@@ -17,17 +19,18 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT } from './Grid.js';
     await app.init({
         background: 0x0d1117,
         antialias:  true,
-        resizeTo:   window,
+        resizeTo: document.getElementById('pixi-container'),
     });
 
     document.getElementById('pixi-container').appendChild(app.canvas);
 
-    const GAME_WIDTH  = CANVAS_WIDTH;
+    
     const GAME_HEIGHT = CANVAS_HEIGHT + UI_HEIGHT;
+    const GAME_WIDTH  = CANVAS_HEIGHT;
 
     const resize = () => {
-        const scaleX = app.screen.width  / GAME_WIDTH;
-        const scaleY = app.screen.height / GAME_HEIGHT;
+        const scaleX = app.canvas.width  / GAME_WIDTH;
+        const scaleY = app.canvas.height / GAME_HEIGHT;
         const scale  = Math.min(scaleX, scaleY); // mantener proporciones
 
         app.stage.scale.set(scale);

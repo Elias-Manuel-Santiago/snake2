@@ -54,7 +54,10 @@ export default (_env, argv) => {
     },
 
     module: {
-      rules: [],
+      rules: [{
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader'], // Procesa el CSS y lo inyecta en el DOM
+      },],
     },
     resolve: {
       extensions: [".js", ".jsx"],
