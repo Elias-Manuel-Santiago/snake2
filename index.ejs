@@ -7,10 +7,46 @@
     <link rel="stylesheet" href="style.css">
     <title>SNAKE</title>
 </head>
-
 <body>
     <div id="app">
-        <div id="pixi-container"></div>
+        <div id="pixi-container">
+            <!-- PixiJS inyectará su canvas aquí -->
+
+            <div id="touch-zone-p1" class="touch-zone"></div>    
+            <div id="touch-zone-p2" class="touch-zone"></div>
+            <!-- CAPA DE UI -->
+            <div id="ui-layer">
+                <!-- HUD Superior -->
+                <div id="hud" class="hud-1p">
+                    <span id="score-text">🍎 0</span>
+                    <span id="level-text">Nivel 1  0/5</span>
+                    <span id="help-text">Moverse: W A S D</span>
+                </div>
+
+                <!-- Overlay Pausa -->
+                <div id="overlay-pause" class="overlay">
+                    <h2 class="title-pause">JUEGO PAUSADO</h2>
+                    <p>Presioná P o ESC para reanudar<br>Presioná M para ir al menú principal</p>
+                    <button id="menu-btn-pause" class="btn-danger">Salir al Menú</button>
+                </div>
+
+                <!-- Overlay Game Over -->
+                <div id="overlay-gameover" class="overlay">
+                    <h2 class="title-gameover">GAME OVER</h2>
+                    <h3 id="winner-text"></h3>
+                    <p id="final-score-text"></p>
+                    <p class="sub-text">Presioná R para reiniciar o SPACE para el menú</p>
+                </div>
+
+                <!-- Overlay Victoria -->
+                <div id="overlay-win" class="overlay">
+                    <h2 class="title-win">VICTORIA</h2>
+                    <p id="final-win-score-text"></p>
+                    <p class="sub-text">Presioná R para reiniciar o SPACE para el menú</p>
+                </div>
+            </div>
+            <!-- FIN CAPA DE UI -->
+        </div>
     </div>
 </body>
 </html>
