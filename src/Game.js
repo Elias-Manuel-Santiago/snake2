@@ -21,7 +21,7 @@ const STATE = {
     PLAYING: 'playing',
     GAME_OVER: 'game_over',
     MENU: 'menu',
-    PAUSED: 'paused', // ← NUEVO ESTADO
+    PAUSED: 'paused', 
 };
 
 let nivelActual = 0;
@@ -36,7 +36,7 @@ export class Game {
         this.leaderboard = new Leaderboard();
         this.score = 0;
         this.score2 = 0;
-        this.isTwoPlayerMode = false; // ← Flag para saber qué modo reiniciar
+        this.isTwoPlayerMode = false; 
 
         this.timeSinceLastMove = 0;
 
@@ -54,12 +54,14 @@ export class Game {
     menu() {
         this.clearScene();
         this.state = STATE.MENU;
+        
+        // Ocultar zonas de touch al volver al menú
+        document.getElementById('pixi-container').classList.remove('is-2p-mode');
+        
         this.leaderboard.container.style.width = '280px';
         this.leaderboard.showNameInput(true);
         this.leaderboard.currentUsername = '';
         this.leaderboard.render();
-
-        this.leaderboard.showNameInput(true);
 
         this.menuScreen = new Menu(this.app.stage, (mode) => {
             if (mode === '1p') {
@@ -81,8 +83,6 @@ export class Game {
             if (mode === '2p') {
                 this.menuScreen.destroy();
                 this.menuScreen = null;
-                this.leaderboard.container.innerHTML = '';
-                this.leaderboard.container.style.width = 0;
                 this.isTwoPlayerMode = true;
                 this.start2P();
             }
@@ -92,6 +92,9 @@ export class Game {
     start() {
         this.levelScore = 0;
         this.clearScene();
+        
+        // Ocultar zonas de touch en modo 1 jugador
+        document.getElementById('pixi-container').classList.remove('is-2p-mode');
 
         this.leaderboard.showNameInput(false);
         this.levelScore = 0;
@@ -101,7 +104,6 @@ export class Game {
         this.state = STATE.PLAYING;
 
         this.createBackground();
-        // Le pasamos `this` a la UI para que el botón de pausa pueda llamar a métodos de Game
         this.ui = new UI(this.app.stage, false, this);
 
         const startX = Math.floor(GRID_COLS / 2);
@@ -120,6 +122,8 @@ export class Game {
 
     start2P() {
         this.clearScene();
+        
+        document.getElementById('pixi-container').classList.add('is-2p-mode'); // Mostrar zonas de touch en modo 2 jugadores
 
         this.score = 0;
         this.score2 = 0;
@@ -233,16 +237,14 @@ export class Game {
 
             if (this.state !== STATE.PLAYING) return;
 
-
-
             // Jugador 1: WASD o flechas
             switch (e.code) {
                 case 'KeyW': this.snake.setDirection(DIRECTION.UP); break;
                 case 'KeyS': this.snake.setDirection(DIRECTION.DOWN); break;
                 case 'KeyA': this.snake.setDirection(DIRECTION.LEFT); break;
                 case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
-                case 'ShiftLeft':
-                    if (this.snake2) this.snake.dash = true;
+                case 'ShiftLeft': 
+                    if (this.isTwoPlayerMode) this.snake.dash = true; 
                     break;
             }
 
@@ -259,30 +261,37 @@ export class Game {
         });
 
         window.addEventListener('keyup', (e) => {
-            if (this.snake2) {
-                switch (e.code) {
-                    case 'ShiftLeft': this.snake.dash = false; break;
-                    case 'KeyB': this.snake2.dash = false; break;
-                }
-            }
+            if (this.snake && e.code === 'ShiftLeft' && this.isTwoPlayerMode) this.snake.dash = false;
+            if (this.snake2 && e.code === 'KeyB') this.snake2.dash = false;
         });
 
-        let touchStartX = 0;
-        let touchStartY = 0;
+        // ============================================================
+        // CONTROLES TOUCH (Móviles)
+        // ============================================================
+        
+        const touchZoneP1 = document.getElementById('touch-zone-p1');
+        const touchZoneP2 = document.getElementById('touch-zone-p2');
 
+        let touchStartX_p1 = 0, touchStartY_p1 = 0;
+        let touchStartX_p2 = 0, touchStartY_p2 = 0;
+        let touchStartX_global = 0, touchStartY_global = 0;
+
+        // --- CONTROLES PARA MODO 1 JUGADOR (Swipe en cualquier lado) ---
         window.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
+            if (this.isTwoPlayerMode) return;
+            touchStartX_global = e.touches[0].clientX;
+            touchStartY_global = e.touches[0].clientY;
         }, { passive: true });
 
         window.addEventListener('touchend', (e) => {
-            const dx = e.changedTouches[0].clientX - touchStartX;
-            const dy = e.changedTouches[0].clientY - touchStartY;
+            if (this.isTwoPlayerMode) return;
+            const dx = e.changedTouches[0].clientX - touchStartX_global;
+            const dy = e.changedTouches[0].clientY - touchStartY_global;
 
             if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
 
             if (this.state === STATE.GAME_OVER) { this.menu(); return; }
-            if (this.state !== STATE.PLAYING) return;
+            if (this.state !== STATE.PLAYING || !this.snake) return;
 
             if (Math.abs(dx) > Math.abs(dy)) {
                 this.snake.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
@@ -290,10 +299,50 @@ export class Game {
                 this.snake.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
             }
         }, { passive: true });
+
+        // --- CONTROLES PARA MODO 2 JUGADORES (Split Screen) ---
+        if (touchZoneP1 && touchZoneP2) {
+            
+            // ZONA JUGADOR 1 (Mitad superior)
+            touchZoneP1.addEventListener('touchstart', (e) => {
+                touchStartX_p1 = e.touches[0].clientX;
+                touchStartY_p1 = e.touches[0].clientY;
+            }, { passive: true });
+
+            touchZoneP1.addEventListener('touchend', (e) => {
+                if (this.state !== STATE.PLAYING || !this.snake) return;
+                const dx = e.changedTouches[0].clientX - touchStartX_p1;
+                const dy = e.changedTouches[0].clientY - touchStartY_p1;
+
+                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+                    this.snake.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
+                } else if (Math.abs(dy) > 10) {
+                    this.snake.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
+                }
+            }, { passive: true });
+
+            // ZONA JUGADOR 2 (Mitad inferior)
+            touchZoneP2.addEventListener('touchstart', (e) => {
+                touchStartX_p2 = e.touches[0].clientX;
+                touchStartY_p2 = e.touches[0].clientY;
+            }, { passive: true });
+
+            touchZoneP2.addEventListener('touchend', (e) => {
+                if (this.state !== STATE.PLAYING || !this.snake2) return;
+                const dx = e.changedTouches[0].clientX - touchStartX_p2;
+                const dy = e.changedTouches[0].clientY - touchStartY_p2;
+
+                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+                    this.snake2.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
+                } else if (Math.abs(dy) > 10) {
+                    this.snake2.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
+                }
+            }, { passive: true });
+        }
     }
 
     update(ticker) {
-        if (this.state !== STATE.PLAYING) return; // Detiene la lógica si está pausado o en Game Over
+        if (this.state !== STATE.PLAYING) return; 
 
         // 1. ACTUALIZACIÓN DE TIEMPOS INDEPENDIENTES
         this.snake.updateTick(ticker.deltaMS);
@@ -403,8 +452,7 @@ export class Game {
                 if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, [], p1)) {
                     this.state = STATE.GAME_OVER;
                     this.leaderboard.saveScore(this.score);
-                    this.ui.showGameOver(this.score); // Usando showGameWin según la UI provista
-
+                    this.ui.showGameOver(this.score); 
                 }
             }
         }

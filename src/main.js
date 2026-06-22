@@ -12,34 +12,24 @@ import { Game }        from './Game.js';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT } from './Grid.js';
 import './style.css';
 
-
 (async () => {
     const app = new Application();
 
+    // Inicializamos con tamaño fijo lógico. NO usamos resizeTo.
     await app.init({
         background: 0x0d1117,
         antialias:  true,
-        resizeTo: document.getElementById('pixi-container'),
+        width: CANVAS_WIDTH,           // 600
+        height: CANVAS_HEIGHT + UI_HEIGHT, // 650
     });
 
-    document.getElementById('pixi-container').appendChild(app.canvas);
+    // Forzamos al canvas a llenar su contenedor usando CSS
+    const canvas = app.canvas;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.display = 'block';
 
+    document.getElementById('pixi-container').appendChild(canvas);
     
-    const GAME_HEIGHT = CANVAS_HEIGHT + UI_HEIGHT;
-    const GAME_WIDTH  = CANVAS_HEIGHT;
-
-    const resize = () => {
-        const scaleX = app.canvas.width  / GAME_WIDTH;
-        const scaleY = app.canvas.height / GAME_HEIGHT;
-        const scale  = Math.min(scaleX, scaleY); // mantener proporciones
-
-        app.stage.scale.set(scale);
-        app.stage.x = (app.screen.width  - GAME_WIDTH  * scale) / 2;
-        app.stage.y = (app.screen.height - GAME_HEIGHT * scale) / 2;
-    };
-
-    app.renderer.on('resize', resize);
-    resize();
-
     new Game(app);
 })();
