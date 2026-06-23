@@ -1,7 +1,6 @@
 // ============================================================
 // Game.js — Controlador principal del juego
 // ============================================================
-
 import { Graphics } from 'pixi.js';
 import { Snake, DIRECTION, SNAKE_COLORS } from './Snake.js';
 import { Apple } from './Apple.js';
@@ -17,6 +16,7 @@ const STATE = {
     GAME_OVER: 'game_over',
     MENU: 'menu',
     PAUSED: 'paused', 
+    READY: 'ready', 
 };
 
 let nivelActual = 0;
@@ -30,6 +30,7 @@ export class Game {
         this.score = 0;
         this.score2 = 0;
         this.isTwoPlayerMode = false; 
+        this.pendingMode = null; // Guarda si eligió '1p' o '2p' en el menú
 
         this.timeSinceLastMove = 0;
 
@@ -42,14 +43,13 @@ export class Game {
         this.app.stage.sortableChildren = true;
     }
 
-        menu() { // Ciclo de vida
+    menu() { // Ciclo de vida
         this.clearScene();
         this.state = STATE.MENU;
         
         document.getElementById('app').classList.remove('is-2p-mode');
         
-        //Limpiar el nombre ANTES de renderizar, para que el HTML sepa que debe mostrar el input
-        this.leaderboard.currentUsername = '';
+        this.leaderboard.currentUsername = ''; //Limpiar nombre antes de renderizar
         this.leaderboard.render();
         this.leaderboard.showNameInput(true);
 
@@ -66,15 +66,15 @@ export class Game {
 
                 this.menuScreen.destroy();
                 this.menuScreen = null;
-                this.isTwoPlayerMode = false;
-                this.start();
+                this.pendingMode = '1p';
+                this.showReadyScreen(false); // Ir a pantalla de controles en modo 1P
             }
 
             if (mode === '2p') {
                 this.menuScreen.destroy();
                 this.menuScreen = null;
-                this.isTwoPlayerMode = true;
-                this.start2P();
+                this.pendingMode = '2p';
+                this.showReadyScreen(true); // Ir a pantalla de controles en modo 2P
             }
         });
     }
@@ -153,11 +153,8 @@ export class Game {
     }
 
     restartGame() {
-        if (this.isTwoPlayerMode) {
-            this.start2P();
-        } else {
-            this.start();
-        }
+        if (this.isTwoPlayerMode) this.start2P();
+        else this.start();
     }
 
     clearScene() {
@@ -337,6 +334,34 @@ export class Game {
 
             this.leaderboard.saveScore(this.score);
             this.ui.showGameOver(this.score); 
+        }
+    }
+
+    showReadyScreen(isTwoPlayer) { // Overlay de preparación
+        this.clearScene();
+        this.state = STATE.READY;
+        this.isTwoPlayerMode = isTwoPlayer;
+
+        document.getElementById('app').classList.toggle('is-2p-mode', isTwoPlayer); // Mostrar/Ocultar elementos según el modo
+        
+        // En 1P mostramos el leaderboard de fondo, en 2P lo ocultamos (CSS se encarga si tiene la clase is-2p-mode)
+        if (!isTwoPlayer) {
+            this.leaderboard.render();
+            this.leaderboard.showNameInput(false); // Ocultar input, mostrar solo scores
+        }
+
+        this.ui = new UI(this.app.stage, isTwoPlayer, this); //UI temporal para mostrar overlay de inicio
+        this.ui.showStartOverlay(true);
+        
+        this.createBackground();
+    }
+
+    startPendingGame() {  //Se ejecuta al detectar cualquier input en estado READY
+        if (this.state !== STATE.READY) return;
+        if (this.pendingMode === '2p') {
+            this.start2P();
+        } else {
+            this.start();
         }
     }
 
