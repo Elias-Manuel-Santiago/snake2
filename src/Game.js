@@ -27,9 +27,6 @@ const STATE = {
 let nivelActual = 0;
 
 export class Game {
-    /**
-     * @param {import('pixi.js').Application} app - Instancia de Pixi Application
-     */
     constructor(app) {
         this.app = app;
         this.state = STATE.MENU;
@@ -55,13 +52,11 @@ export class Game {
         this.clearScene();
         this.state = STATE.MENU;
         
-        // Ocultar zonas de touch al volver al menú
-        document.getElementById('pixi-container').classList.remove('is-2p-mode');
+        document.getElementById('app').classList.remove('is-2p-mode');
         
-        this.leaderboard.container.style.width = '280px';
+        this.leaderboard.render();
         this.leaderboard.showNameInput(true);
         this.leaderboard.currentUsername = '';
-        this.leaderboard.render();
 
         this.menuScreen = new Menu(this.app.stage, (mode) => {
             if (mode === '1p') {
@@ -93,8 +88,7 @@ export class Game {
         this.levelScore = 0;
         this.clearScene();
         
-        // Ocultar zonas de touch en modo 1 jugador
-        document.getElementById('pixi-container').classList.remove('is-2p-mode');
+        document.getElementById('app').classList.remove('is-2p-mode');
 
         this.leaderboard.showNameInput(false);
         this.levelScore = 0;
@@ -123,7 +117,7 @@ export class Game {
     start2P() {
         this.clearScene();
         
-        document.getElementById('pixi-container').classList.add('is-2p-mode'); // Mostrar zonas de touch en modo 2 jugadores
+        document.getElementById('app').classList.add('is-2p-mode');
 
         this.score = 0;
         this.score2 = 0;
@@ -152,7 +146,6 @@ export class Game {
         this.ui.updateScores(this.score, this.score2);
     }
 
-    /** Alterna el estado de pausa */
     togglePause() {
         if (this.state === STATE.PLAYING) {
             this.state = STATE.PAUSED;
@@ -163,7 +156,6 @@ export class Game {
         }
     }
 
-    /** Método para reiniciar la partida actual directamente */
     restartGame() {
         if (this.isTwoPlayerMode) {
             this.start2P();
@@ -222,14 +214,12 @@ export class Game {
                 e.preventDefault();
             }
 
-            // Si está en GAME OVER, SPACE va al menú y R reinicia
             if (this.state === STATE.GAME_OVER || this.state === STATE.PAUSED) {
                 if (e.code === 'Space') this.menu();
                 if (e.code === 'KeyR') this.restartGame();
                 return;
             }
 
-            // Control de pausa por teclado (Teclas Escape o P)
             if ((e.code === 'Escape' || e.code === 'KeyP') && (this.state === STATE.PLAYING || this.state === STATE.PAUSED)) {
                 this.togglePause();
                 return;
@@ -237,18 +227,17 @@ export class Game {
 
             if (this.state !== STATE.PLAYING) return;
 
-            // Jugador 1: WASD o flechas
             switch (e.code) {
                 case 'KeyW': this.snake.setDirection(DIRECTION.UP); break;
                 case 'KeyS': this.snake.setDirection(DIRECTION.DOWN); break;
                 case 'KeyA': this.snake.setDirection(DIRECTION.LEFT); break;
                 case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
                 case 'ShiftLeft': 
-                    if (this.isTwoPlayerMode) this.snake.dash = true; 
+                    if (this.isTwoPlayerMode) this.snake.dash = true;                     // Solo activa dash en PC (modo 2P)
+
                     break;
             }
 
-            // Jugador 2: IJKL
             if (this.snake2) {
                 switch (e.code) {
                     case 'KeyI': this.snake2.setDirection(DIRECTION.UP); break;
@@ -260,7 +249,7 @@ export class Game {
             }
         });
 
-        window.addEventListener('keyup', (e) => {
+        window.addEventListener('keyup', (e) => { // Solo desactiva dash en PC (modo 2P)
             if (this.snake && e.code === 'ShiftLeft' && this.isTwoPlayerMode) this.snake.dash = false;
             if (this.snake2 && e.code === 'KeyB') this.snake2.dash = false;
         });
@@ -276,7 +265,7 @@ export class Game {
         let touchStartX_p2 = 0, touchStartY_p2 = 0;
         let touchStartX_global = 0, touchStartY_global = 0;
 
-        // --- CONTROLES PARA MODO 1 JUGADOR (Swipe en cualquier lado) ---
+                // --- CONTROLES MODO 1 JUGADOR (Global) ---
         window.addEventListener('touchstart', (e) => {
             if (this.isTwoPlayerMode) return;
             touchStartX_global = e.touches[0].clientX;
@@ -284,13 +273,15 @@ export class Game {
         }, { passive: true });
 
         window.addEventListener('touchend', (e) => {
+            if (this.state === STATE.GAME_OVER) { this.menu(); return; }
+
             if (this.isTwoPlayerMode) return;
+
             const dx = e.changedTouches[0].clientX - touchStartX_global;
             const dy = e.changedTouches[0].clientY - touchStartY_global;
 
             if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
 
-            if (this.state === STATE.GAME_OVER) { this.menu(); return; }
             if (this.state !== STATE.PLAYING || !this.snake) return;
 
             if (Math.abs(dx) > Math.abs(dy)) {
@@ -300,16 +291,17 @@ export class Game {
             }
         }, { passive: true });
 
-        // --- CONTROLES PARA MODO 2 JUGADORES (Split Screen) ---
+        // --- CONTROLES MODO 2 JUGADORES (Solo movimiento en las zonas) ---
         if (touchZoneP1 && touchZoneP2) {
             
-            // ZONA JUGADOR 1 (Mitad superior)
             touchZoneP1.addEventListener('touchstart', (e) => {
                 touchStartX_p1 = e.touches[0].clientX;
                 touchStartY_p1 = e.touches[0].clientY;
             }, { passive: true });
 
             touchZoneP1.addEventListener('touchend', (e) => {
+                if (this.state === STATE.GAME_OVER) { this.menu(); return; }
+                
                 if (this.state !== STATE.PLAYING || !this.snake) return;
                 const dx = e.changedTouches[0].clientX - touchStartX_p1;
                 const dy = e.changedTouches[0].clientY - touchStartY_p1;
@@ -321,13 +313,14 @@ export class Game {
                 }
             }, { passive: true });
 
-            // ZONA JUGADOR 2 (Mitad inferior)
             touchZoneP2.addEventListener('touchstart', (e) => {
                 touchStartX_p2 = e.touches[0].clientX;
                 touchStartY_p2 = e.touches[0].clientY;
             }, { passive: true });
 
             touchZoneP2.addEventListener('touchend', (e) => {
+                if (this.state === STATE.GAME_OVER) { this.menu(); return; }
+
                 if (this.state !== STATE.PLAYING || !this.snake2) return;
                 const dx = e.changedTouches[0].clientX - touchStartX_p2;
                 const dy = e.changedTouches[0].clientY - touchStartY_p2;
@@ -339,12 +332,42 @@ export class Game {
                 }
             }, { passive: true });
         }
+
+        // ============================================================
+        // BOTONES DE DASH (Solo para Móvil por CSS, pero JS los escucha igual)
+        // ============================================================
+        const dashBtnP1 = document.getElementById('dash-btn-p1');
+        const dashBtnP2 = document.getElementById('dash-btn-p2');
+
+        if (dashBtnP1 && dashBtnP2) {
+            const activateP1 = () => { if (this.snake) this.snake.dash = true; dashBtnP1.classList.add('active'); };
+            const deactivateP1 = () => { if (this.snake) this.snake.dash = false; dashBtnP1.classList.remove('active'); };
+            
+            const activateP2 = () => { if (this.snake2) this.snake2.dash = true; dashBtnP2.classList.add('active'); };
+            const deactivateP2 = () => { if (this.snake2) this.snake2.dash = false; dashBtnP2.classList.remove('active'); };
+
+            dashBtnP1.addEventListener('mousedown', activateP1);
+            dashBtnP1.addEventListener('mouseup', deactivateP1);
+            dashBtnP1.addEventListener('mouseleave', deactivateP1);
+
+            dashBtnP2.addEventListener('mousedown', activateP2);
+            dashBtnP2.addEventListener('mouseup', deactivateP2);
+            dashBtnP2.addEventListener('mouseleave', deactivateP2);
+
+            // TOUCH (Móvil)
+            dashBtnP1.addEventListener('touchstart', (e) => { e.preventDefault(); activateP1(); }, { passive: false });
+            dashBtnP1.addEventListener('touchend', (e) => { e.preventDefault(); deactivateP1(); }, { passive: false });
+            dashBtnP1.addEventListener('touchcancel', deactivateP1);
+
+            dashBtnP2.addEventListener('touchstart', (e) => { e.preventDefault(); activateP2(); }, { passive: false });
+            dashBtnP2.addEventListener('touchend', (e) => { e.preventDefault(); deactivateP2(); }, { passive: false });
+            dashBtnP2.addEventListener('touchcancel', deactivateP2);
+        }
     }
 
     update(ticker) {
         if (this.state !== STATE.PLAYING) return; 
 
-        // 1. ACTUALIZACIÓN DE TIEMPOS INDEPENDIENTES
         this.snake.updateTick(ticker.deltaMS);
         if (this.snake2) {
             this.snake2.updateTick(ticker.deltaMS);
@@ -353,7 +376,6 @@ export class Game {
         const p1 = this.snake.currentProgress;
         const p2 = this.snake2 ? this.snake2.currentProgress : 0;
 
-        // 2. VERIFICACIÓN DE COLISIONES INTERPOLADAS
         if (this.state === STATE.PLAYING) {
             let ate1 = false;
             let ate2 = false;
@@ -380,12 +402,10 @@ export class Game {
                         this.level = nextLevel;
                         this.levelScore = 0;
                         this.snake.moveInterval = LEVELS[this.level].moveInterval;
-
                     }
                     if (this.snake.segments.length == GRID_COLS * GRID_ROWS) {
                         this.state = STATE.GAME_OVER;
                     }
-
 
                     this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
                     this.apple.randomize(this.snake.segments);
@@ -457,12 +477,10 @@ export class Game {
             }
         }
 
-        // 3. RENDER
         if (this.state === STATE.PLAYING) {
             this.snake.render(p1);
             if (this.snake2) this.snake2.render(p2);
         }
-
     }
 
     destroy() {
