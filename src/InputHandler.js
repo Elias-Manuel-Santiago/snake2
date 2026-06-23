@@ -17,7 +17,7 @@ export class InputHandler {
 
     // ── Input ─────────────────────────────────────────────────
 
-        setupKeyboard() {
+    setupKeyboard() {
         // Declarar 'g' aquí afuera para que sea accesible tanto para keydown como para keyup
         const g = this.game;
 
@@ -25,6 +25,9 @@ export class InputHandler {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Escape'].includes(e.key)) {
                 e.preventDefault();
             }
+
+            // Si está en la pantalla de "¿Listo?", cualquier tecla inicia el juego
+            if (g.state === 'ready') { g.startPendingGame(); return; }
 
             if (g.state === 'game_over' || g.state === 'paused') {
                 if (e.code === 'Space') g.menu();
@@ -45,8 +48,7 @@ export class InputHandler {
                 case 'KeyA': g.snake.setDirection(DIRECTION.LEFT); break;
                 case 'KeyD': g.snake.setDirection(DIRECTION.RIGHT); break;
                 case 'ShiftLeft': 
-                    // Solo activa dash en PC (modo 2P)
-                    if (g.isTwoPlayerMode) g.snake.dash = true;                     
+                    if (g.isTwoPlayerMode) g.snake.dash = true; // Solo activa dash en PC (modo 2P)                
                     break;
             }
 
@@ -79,10 +81,7 @@ export class InputHandler {
         let touchStartX_p2 = 0, touchStartY_p2 = 0;
         let touchStartX_global = 0, touchStartY_global = 0;
 
-        // ============================================================
         // CONTROLES TOUCH (Móviles)
-        // ============================================================
-
         // --- CONTROLES MODO 1 JUGADOR (Global) ---
         window.addEventListener('touchstart', (e) => {
             if (g.isTwoPlayerMode) return;
@@ -92,6 +91,10 @@ export class InputHandler {
 
         window.addEventListener('touchend', (e) => {
             if (g.state === 'game_over') { g.menu(); return; }
+            
+            // Si toca la pantalla en "¿Listo?", iniciar juego
+            if (g.state === 'ready') { g.startPendingGame(); return; }
+
             if (g.isTwoPlayerMode) return;
 
             const dx = e.changedTouches[0].clientX - touchStartX_global;
@@ -151,6 +154,14 @@ export class InputHandler {
         // BOTONES DE DASH (Solo para Móvil por CSS, pero JS los escucha igual)
         // ============================================================
         this.setupDashButtons();
+
+        // Listener para iniciar con el mouse en PC (Hacer clic en el overlay)
+        const startOverlay = document.getElementById('overlay-start');
+        if (startOverlay) {
+            startOverlay.addEventListener('mousedown', () => {
+                if (this.game.state === 'ready') this.game.startPendingGame();
+            });
+        }
     }
 
     setupDashButtons() {

@@ -90,8 +90,19 @@ export class UI {
     }
 
     destroy() {
-        this.hideGameOver();
+        this.hideAllOverlays();
         // OCULTAR EL HUD AL VOLVER AL MENÚ
         this.hud.style.display = 'none';
+    }
+
+    showStartOverlay(visible) {
+        const overlay = document.getElementById('overlay-start');
+        if (overlay) overlay.classList.toggle('active', visible);
+    }
+
+    hideAllOverlays() {
+        this.hideGameOver();
+        const overlay = document.getElementById('overlay-start');
+        if (overlay) overlay.classList.remove('active');
     }
 }
