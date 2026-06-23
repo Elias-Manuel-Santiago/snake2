@@ -8,14 +8,9 @@ import { Apple } from './Apple.js';
 import { UI } from './UI.js';
 import { Leaderboard } from './Leaderboard.js';
 import { Menu } from './Menu.js';
-import {
-    GRID_COLS, GRID_ROWS,
-    CELL_SIZE,
-    CANVAS_WIDTH, CANVAS_HEIGHT,
-    UI_HEIGHT,
-    MOVE_INTERVAL,
-    LEVELS,
-} from './Grid.js';
+import { InputHandler } from './InputHandler.js';
+import { ObstacleManager } from './ObstacleManager.js';
+import { GRID_COLS, GRID_ROWS, CELL_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT, LEVELS } from './Grid.js';
 
 const STATE = {
     PLAYING: 'playing',
@@ -31,13 +26,14 @@ export class Game {
         this.app = app;
         this.state = STATE.MENU;
         this.leaderboard = new Leaderboard();
+        this.obstacleManager = new ObstacleManager();
         this.score = 0;
         this.score2 = 0;
         this.isTwoPlayerMode = false; 
 
         this.timeSinceLastMove = 0;
 
-        this.setupInput();
+        this.inputHandler = new InputHandler(this);
         this.menu();
 
         this._onTick = (ticker) => this.update(ticker);
@@ -46,17 +42,16 @@ export class Game {
         this.app.stage.sortableChildren = true;
     }
 
-    // ── Ciclo de vida ─────────────────────────────────────────
-
-    menu() {
+        menu() { // Ciclo de vida
         this.clearScene();
         this.state = STATE.MENU;
         
         document.getElementById('app').classList.remove('is-2p-mode');
         
+        //Limpiar el nombre ANTES de renderizar, para que el HTML sepa que debe mostrar el input
+        this.leaderboard.currentUsername = '';
         this.leaderboard.render();
         this.leaderboard.showNameInput(true);
-        this.leaderboard.currentUsername = '';
 
         this.menuScreen = new Menu(this.app.stage, (mode) => {
             if (mode === '1p') {
@@ -94,6 +89,7 @@ export class Game {
         this.levelScore = 0;
 
         this.level = 0;
+        this.obstacleManager.reset(); // Inicializar obstáculos del nivel
         this.score = 0;
         this.state = STATE.PLAYING;
 
@@ -172,6 +168,8 @@ export class Game {
         if (this.background) this.background.destroy();
         if (this.menuScreen) this.menuScreen.destroy();
 
+        this.obstacleManager.clearAll();
+
         this.snake = null;
         this.snake2 = null;
         this.apple = null;
@@ -206,166 +204,7 @@ export class Game {
         this.app.stage.addChildAt(this.background, 0);
     }
 
-    // ── Input ─────────────────────────────────────────────────
-
-    setupInput() {
-        window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Escape'].includes(e.key)) {
-                e.preventDefault();
-            }
-
-            if (this.state === STATE.GAME_OVER || this.state === STATE.PAUSED) {
-                if (e.code === 'Space') this.menu();
-                if (e.code === 'KeyR') this.restartGame();
-                return;
-            }
-
-            if ((e.code === 'Escape' || e.code === 'KeyP') && (this.state === STATE.PLAYING || this.state === STATE.PAUSED)) {
-                this.togglePause();
-                return;
-            }
-
-            if (this.state !== STATE.PLAYING) return;
-
-            switch (e.code) {
-                case 'KeyW': this.snake.setDirection(DIRECTION.UP); break;
-                case 'KeyS': this.snake.setDirection(DIRECTION.DOWN); break;
-                case 'KeyA': this.snake.setDirection(DIRECTION.LEFT); break;
-                case 'KeyD': this.snake.setDirection(DIRECTION.RIGHT); break;
-                case 'ShiftLeft': 
-                    if (this.isTwoPlayerMode) this.snake.dash = true;                     // Solo activa dash en PC (modo 2P)
-
-                    break;
-            }
-
-            if (this.snake2) {
-                switch (e.code) {
-                    case 'KeyI': this.snake2.setDirection(DIRECTION.UP); break;
-                    case 'KeyK': this.snake2.setDirection(DIRECTION.DOWN); break;
-                    case 'KeyJ': this.snake2.setDirection(DIRECTION.LEFT); break;
-                    case 'KeyL': this.snake2.setDirection(DIRECTION.RIGHT); break;
-                    case 'KeyB': this.snake2.dash = true; break;
-                }
-            }
-        });
-
-        window.addEventListener('keyup', (e) => { // Solo desactiva dash en PC (modo 2P)
-            if (this.snake && e.code === 'ShiftLeft' && this.isTwoPlayerMode) this.snake.dash = false;
-            if (this.snake2 && e.code === 'KeyB') this.snake2.dash = false;
-        });
-
-        // ============================================================
-        // CONTROLES TOUCH (Móviles)
-        // ============================================================
-        
-        const touchZoneP1 = document.getElementById('touch-zone-p1');
-        const touchZoneP2 = document.getElementById('touch-zone-p2');
-
-        let touchStartX_p1 = 0, touchStartY_p1 = 0;
-        let touchStartX_p2 = 0, touchStartY_p2 = 0;
-        let touchStartX_global = 0, touchStartY_global = 0;
-
-                // --- CONTROLES MODO 1 JUGADOR (Global) ---
-        window.addEventListener('touchstart', (e) => {
-            if (this.isTwoPlayerMode) return;
-            touchStartX_global = e.touches[0].clientX;
-            touchStartY_global = e.touches[0].clientY;
-        }, { passive: true });
-
-        window.addEventListener('touchend', (e) => {
-            if (this.state === STATE.GAME_OVER) { this.menu(); return; }
-
-            if (this.isTwoPlayerMode) return;
-
-            const dx = e.changedTouches[0].clientX - touchStartX_global;
-            const dy = e.changedTouches[0].clientY - touchStartY_global;
-
-            if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-
-            if (this.state !== STATE.PLAYING || !this.snake) return;
-
-            if (Math.abs(dx) > Math.abs(dy)) {
-                this.snake.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
-            } else {
-                this.snake.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
-            }
-        }, { passive: true });
-
-        // --- CONTROLES MODO 2 JUGADORES (Solo movimiento en las zonas) ---
-        if (touchZoneP1 && touchZoneP2) {
-            
-            touchZoneP1.addEventListener('touchstart', (e) => {
-                touchStartX_p1 = e.touches[0].clientX;
-                touchStartY_p1 = e.touches[0].clientY;
-            }, { passive: true });
-
-            touchZoneP1.addEventListener('touchend', (e) => {
-                if (this.state === STATE.GAME_OVER) { this.menu(); return; }
-                
-                if (this.state !== STATE.PLAYING || !this.snake) return;
-                const dx = e.changedTouches[0].clientX - touchStartX_p1;
-                const dy = e.changedTouches[0].clientY - touchStartY_p1;
-
-                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-                    this.snake.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
-                } else if (Math.abs(dy) > 10) {
-                    this.snake.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
-                }
-            }, { passive: true });
-
-            touchZoneP2.addEventListener('touchstart', (e) => {
-                touchStartX_p2 = e.touches[0].clientX;
-                touchStartY_p2 = e.touches[0].clientY;
-            }, { passive: true });
-
-            touchZoneP2.addEventListener('touchend', (e) => {
-                if (this.state === STATE.GAME_OVER) { this.menu(); return; }
-
-                if (this.state !== STATE.PLAYING || !this.snake2) return;
-                const dx = e.changedTouches[0].clientX - touchStartX_p2;
-                const dy = e.changedTouches[0].clientY - touchStartY_p2;
-
-                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-                    this.snake2.setDirection(dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT);
-                } else if (Math.abs(dy) > 10) {
-                    this.snake2.setDirection(dy > 0 ? DIRECTION.DOWN : DIRECTION.UP);
-                }
-            }, { passive: true });
-        }
-
-        // ============================================================
-        // BOTONES DE DASH (Solo para Móvil por CSS, pero JS los escucha igual)
-        // ============================================================
-        const dashBtnP1 = document.getElementById('dash-btn-p1');
-        const dashBtnP2 = document.getElementById('dash-btn-p2');
-
-        if (dashBtnP1 && dashBtnP2) {
-            const activateP1 = () => { if (this.snake) this.snake.dash = true; dashBtnP1.classList.add('active'); };
-            const deactivateP1 = () => { if (this.snake) this.snake.dash = false; dashBtnP1.classList.remove('active'); };
-            
-            const activateP2 = () => { if (this.snake2) this.snake2.dash = true; dashBtnP2.classList.add('active'); };
-            const deactivateP2 = () => { if (this.snake2) this.snake2.dash = false; dashBtnP2.classList.remove('active'); };
-
-            dashBtnP1.addEventListener('mousedown', activateP1);
-            dashBtnP1.addEventListener('mouseup', deactivateP1);
-            dashBtnP1.addEventListener('mouseleave', deactivateP1);
-
-            dashBtnP2.addEventListener('mousedown', activateP2);
-            dashBtnP2.addEventListener('mouseup', deactivateP2);
-            dashBtnP2.addEventListener('mouseleave', deactivateP2);
-
-            // TOUCH (Móvil)
-            dashBtnP1.addEventListener('touchstart', (e) => { e.preventDefault(); activateP1(); }, { passive: false });
-            dashBtnP1.addEventListener('touchend', (e) => { e.preventDefault(); deactivateP1(); }, { passive: false });
-            dashBtnP1.addEventListener('touchcancel', deactivateP1);
-
-            dashBtnP2.addEventListener('touchstart', (e) => { e.preventDefault(); activateP2(); }, { passive: false });
-            dashBtnP2.addEventListener('touchend', (e) => { e.preventDefault(); deactivateP2(); }, { passive: false });
-            dashBtnP2.addEventListener('touchcancel', deactivateP2);
-        }
-    }
-
-    update(ticker) {
+    update(ticker) { // Game Loop
         if (this.state !== STATE.PLAYING) return; 
 
         this.snake.updateTick(ticker.deltaMS);
@@ -375,6 +214,9 @@ export class Game {
 
         const p1 = this.snake.currentProgress;
         const p2 = this.snake2 ? this.snake2.currentProgress : 0;
+
+        // Delegar actualización de Obstáculos NPC
+        this.obstacleManager.update(ticker.deltaMS, this.app.stage, this.snake, p1, this.level, this.isTwoPlayerMode);
 
         if (this.state === STATE.PLAYING) {
             let ate1 = false;
@@ -408,78 +250,93 @@ export class Game {
                     }
 
                     this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
-                    this.apple.randomize(this.snake.segments);
+                    // Pasar tanto los segmentos del jugador como los de los obstáculos
+                    this.apple.randomize([...this.snake.segments, ...this.obstacleManager.getValidSegments()]);
                 }
             }
 
             if (this.snake2) {
-                const head1Pos = this.snake.getInterPos(p1, this.snake.segments[0]);
-                const head2Pos = this.snake2.getInterPos(p2, this.snake2.segments[0]);
-
-                const dx = head1Pos.x - head2Pos.x;
-                const dy = head1Pos.y - head2Pos.y;
-                const distCabezas = dx * dx + dy * dy;
-                const umbralCabezas = 0.6;
-
-                if (distCabezas < umbralCabezas * umbralCabezas) {
-                    let winnerText = '';
-                    if (this.score > this.score2) winnerText = '¡Ganó el Jugador 1! (Más manzanas)';
-                    else if (this.score2 > this.score) winnerText = '¡Ganó el Jugador 2! (Más manzanas)';
-                    else winnerText = '¡Empate absoluto!';
-
-                    this.state = STATE.GAME_OVER;
-                    this.ui.showGameOver(this.score, winnerText, this.score2);
-                }
-
-                if (this.state === STATE.PLAYING) {
-                    let j1ChocoRival = false;
-                    const toleranciaCuadrado = 0.25;
-                    for (let i = 0; i < this.snake2.segments.length; i++) {
-                        const segPos = this.snake2.getInterPos(p2, this.snake2.segments[i]);
-                        const dist = (head1Pos.x - segPos.x) ** 2 + (head1Pos.y - segPos.y) ** 2;
-                        if (dist < toleranciaCuadrado) j1ChocoRival = true;
-                    }
-
-                    let j2ChocoRival = false;
-                    for (let i = 0; i < this.snake.segments.length; i++) {
-                        const segPos = this.snake.getInterPos(p1, this.snake.segments[i]);
-                        const dist = (head2Pos.x - segPos.x) ** 2 + (head2Pos.y - segPos.y) ** 2;
-                        if (dist < toleranciaCuadrado) j2ChocoRival = true;
-                    }
-
-                    const j1ChocoMismo = this.snake.segments.slice(1).some(seg => this.snake.segments[0].x === seg.x && this.snake.segments[0].y === seg.y);
-                    const j2ChocoMismo = this.snake2.segments.slice(1).some(seg => this.snake2.segments[0].x === seg.x && this.snake2.segments[0].y === seg.y);
-
-                    const p1Perdio = j1ChocoRival || j1ChocoMismo;
-                    const p2Perdio = j2ChocoRival || j2ChocoMismo;
-
-                    if (p1Perdio && p2Perdio) {
-                        let winnerText = this.score === this.score2 ? '¡Empate absoluto!' :
-                            (this.score > this.score2 ? '¡Ganó el Jugador 1! (Más manzanas)' : '¡Ganó el Jugador 2! (Más manzanas)');
-                        this.state = STATE.GAME_OVER;
-                        this.ui.showGameOver(this.score, winnerText, this.score2);
-                    }
-                    else if (p1Perdio) {
-                        this.state = STATE.GAME_OVER;
-                        this.ui.showGameOver(this.score, '¡Ganó el Jugador 2!', this.score2);
-                    }
-                    else if (p2Perdio) {
-                        this.state = STATE.GAME_OVER;
-                        this.ui.showGameOver(this.score, '¡Ganó el Jugador 1!', this.score2);
-                    }
-                }
+                this.checkCollisions2P(p1, p2);
             } else {
-                if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, [], p1)) {
-                    this.state = STATE.GAME_OVER;
-                    this.leaderboard.saveScore(this.score);
-                    this.ui.showGameOver(this.score); 
-                }
+                this.checkCollisions1P(p1);
             }
         }
 
         if (this.state === STATE.PLAYING) {
             this.snake.render(p1);
             if (this.snake2) this.snake2.render(p2);
+        }
+    }
+
+    checkCollisions2P(p1, p2) { // Colisiones
+        const head1Pos = this.snake.getInterPos(p1, this.snake.segments[0]);
+        const head2Pos = this.snake2.getInterPos(p2, this.snake2.segments[0]);
+
+        const dx = head1Pos.x - head2Pos.x;
+        const dy = head1Pos.y - head2Pos.y;
+        const distCabezas = dx * dx + dy * dy;
+        const umbralCabezas = 0.6;
+
+        if (distCabezas < umbralCabezas * umbralCabezas) {
+            let winnerText = '';
+            if (this.score > this.score2) winnerText = '¡Ganó el Jugador 1! (Más manzanas)';
+            else if (this.score2 > this.score) winnerText = '¡Ganó el Jugador 2! (Más manzanas)';
+            else winnerText = '¡Empate absoluto!';
+
+            this.state = STATE.GAME_OVER;
+            this.ui.showGameOver(this.score, winnerText, this.score2);
+        }
+
+        if (this.state === STATE.PLAYING) {
+            let j1ChocoRival = false;
+            const toleranciaCuadrado = 0.25;
+            for (let i = 0; i < this.snake2.segments.length; i++) {
+                const segPos = this.snake2.getInterPos(p2, this.snake2.segments[i]);
+                const dist = (head1Pos.x - segPos.x) ** 2 + (head1Pos.y - segPos.y) ** 2;
+                if (dist < toleranciaCuadrado) j1ChocoRival = true;
+            }
+
+            let j2ChocoRival = false;
+            for (let i = 0; i < this.snake.segments.length; i++) {
+                const segPos = this.snake.getInterPos(p1, this.snake.segments[i]);
+                const dist = (head2Pos.x - segPos.x) ** 2 + (head2Pos.y - segPos.y) ** 2;
+                if (dist < toleranciaCuadrado) j2ChocoRival = true;
+            }
+
+            const j1ChocoMismo = this.snake.segments.slice(1).some(seg => this.snake.segments[0].x === seg.x && this.snake.segments[0].y === seg.y);
+            const j2ChocoMismo = this.snake2.segments.slice(1).some(seg => this.snake2.segments[0].x === seg.x && this.snake2.segments[0].y === seg.y);
+
+            const p1Perdio = j1ChocoRival || j1ChocoMismo;
+            const p2Perdio = j2ChocoRival || j2ChocoMismo;
+
+            if (p1Perdio && p2Perdio) {
+                let winnerText = this.score === this.score2 ? '¡Empate absoluto!' :
+                    (this.score > this.score2 ? '¡Ganó el Jugador 1! (Más manzanas)' : '¡Ganó el Jugador 2! (Más manzanas)');
+                this.state = STATE.GAME_OVER;
+                this.ui.showGameOver(this.score, winnerText, this.score2);
+            }
+            else if (p1Perdio) {
+                this.state = STATE.GAME_OVER;
+                this.ui.showGameOver(this.score, '¡Ganó el Jugador 2!', this.score2);
+            }
+            else if (p2Perdio) {
+                this.state = STATE.GAME_OVER;
+                this.ui.showGameOver(this.score, '¡Ganó el Jugador 1!', this.score2);
+            }
+        }
+    }
+
+    checkCollisions1P(p1) {
+        //Juntar todos los segmentos de los obstáculos NPC en un solo array y filtrar válidos antes de pasarlos a la verificación
+        const obstacleSegs = this.obstacleManager.getValidSegments();
+
+        if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, obstacleSegs, p1)) {
+            this.state = STATE.GAME_OVER;
+            
+            this.obstacleManager.clearAll();
+
+            this.leaderboard.saveScore(this.score);
+            this.ui.showGameOver(this.score); 
         }
     }
 
