@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="style.css">
     <title>SNAKE</title>
 </head>
 <body>
     <div id="app">
         <div id="pixi-container">
-            <!-- PixiJS inyectará su canvas aquí -->
-
-            <div id="touch-zone-p1" class="touch-zone"></div>    
+            <!-- Zonas de Touch (Solo movimiento en 2P) -->
+            <div id="touch-zone-p1" class="touch-zone"></div>
             <div id="touch-zone-p2" class="touch-zone"></div>
+
             <!-- CAPA DE UI -->
             <div id="ui-layer">
                 <!-- HUD Superior -->
@@ -45,7 +45,18 @@
                     <p class="sub-text">Presioná R para reiniciar o SPACE para el menú</p>
                 </div>
             </div>
-            <!-- FIN CAPA DE UI -->
+        </div>
+
+        <!-- BOTONES DE DASH (Ocultos por defecto) -->
+        <div id="dash-buttons-container" class="hidden">
+            <div id="dash-btn-p1" class="dash-btn p1-color">
+                <span>DASH</span>
+                <small>J1</small>
+            </div>
+            <div id="dash-btn-p2" class="dash-btn p2-color">
+                <span>DASH</span>
+                <small>J2</small>
+            </div>
         </div>
     </div>
 </body>
