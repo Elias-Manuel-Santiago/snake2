@@ -9,6 +9,24 @@
 </head>
 <body>
     <div id="app">
+        <!-- CAJA DE CONTROLES (Solo visible en PC) -->
+        <div id="controls-container" class="hidden-pc">
+            <div class="leaderboard-box">
+                <h2>CONTROLES</h2>
+                <p>Pausa: P / ESC</p>
+                <div class="control-section">
+                    <p class="control-title">JUGADOR 1</p>
+                    <p>Mover: W A S D</p>
+                    <p>Dash: Shift Izq.</p>
+                </div>
+                <div class="control-section control-section-2p">
+                    <p class="control-title">JUGADOR 2</p>
+                    <p>Mover: I J K L</p>
+                    <p>Dash: B</p>
+                </div>
+            </div>
+        </div>
+
         <div id="pixi-container">
             <!-- Zonas de Touch (Solo movimiento en 2P) -->
             <div id="touch-zone-p1" class="touch-zone"></div>
@@ -43,6 +61,19 @@
                     <h2 class="title-win">VICTORIA</h2>
                     <p id="final-win-score-text"></p>
                     <p class="sub-text">Presioná R para reiniciar o SPACE para el menú</p>
+                </div>
+
+                <!-- OVERLAY DE INICIO -->
+                <div id="overlay-start" class="overlay">
+                    <div class="start-controls-pc">
+                        <h2 class="title-start">¿LISTO?</h2>
+                        <p class="start-sub-pc">Presioná cualquier tecla para comenzar</p>
+                    </div>
+                    <div class="start-controls-mobile">
+                        <h2 class="title-start">¿LISTO?</h2>
+                        <p class="start-sub-mobile">Deslizá el dedo para mover<br>Mantené presionado para Dash (2P)<br>JUGADOR 1 mitad superior, JUGADOR 2 mitad inferior</p>
+                        <p class="tap-to-start">Tocá la pantalla para comenzar</p>
+                    </div>
                 </div>
             </div>
         </div>
