@@ -12,11 +12,11 @@ export class UI {
         this.scoreText = document.getElementById('score-text');
         this.levelText = document.getElementById('level-text');
         this.helpText = document.getElementById('help-text');
-        
+
         this.pauseOverlay = document.getElementById('overlay-pause');
         this.gameoverOverlay = document.getElementById('overlay-gameover');
         this.winOverlay = document.getElementById('overlay-win');
-        
+
         this.winnerText = document.getElementById('winner-text');
         this.finalScoreText = document.getElementById('final-score-text');
         this.finalWinScoreText = document.getElementById('final-win-score-text');
@@ -29,7 +29,7 @@ export class UI {
             this.hud.classList.add('hud-2p');
             this.scoreText.innerHTML = '<span style="color:red">J1: 0 🍎</span>  <span style="color:blue">J2: 0 🍎</span>';
             this.helpText.textContent = 'J1: WASD (Dash: LShift) | J2: IJKL (Dash: B)';
-        }else { // Forzar el restablecimiento del texto cuando se vuelve a 1P
+        } else { // Forzar el restablecimiento del texto cuando se vuelve a 1P
             this.hud.classList.remove('hud-2p');
             this.hud.classList.add('hud-1p');
             this.scoreText.innerHTML = '🍎 0';
@@ -41,6 +41,8 @@ export class UI {
             if (this.game) this.game.menu();
         });
     }
+
+
 
     updateScore(score) {
         if (!this.isTwoPlayer) this.scoreText.textContent = `🍎 ${score}`;
@@ -63,8 +65,9 @@ export class UI {
     }
 
     showGameOver(score, winner = '', score2 = null) {
+
         this.winnerText.textContent = winner;
-        
+
         if (this.isTwoPlayer && score2 !== null) {
             this.finalScoreText.textContent = `J1: ${score} manzanas  -  J2: ${score2} manzanas`;
         } else {
@@ -95,9 +98,17 @@ export class UI {
         this.hud.style.display = 'none';
     }
 
-    showStartOverlay(visible) {
+    showStartOverlay(visible, plataforma) {
         const overlay = document.getElementById('overlay-start');
-        if (overlay) overlay.classList.toggle('active', visible);
+        if (overlay) {
+            overlay.classList.toggle('active', visible);
+
+            // Si nos pasan la plataforma, la agregamos como clase al overlay
+            if (plataforma) {
+                overlay.classList.remove('desktop', 'movil');
+                overlay.classList.add(plataforma);
+            }
+        }
     }
 
     hideAllOverlays() {

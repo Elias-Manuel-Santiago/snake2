@@ -16,6 +16,7 @@
 
 import { Graphics, Container } from 'pixi.js';
 import { CELL_SIZE, UI_HEIGHT, GRID_COLS, GRID_ROWS, lerp } from './Grid.js';
+import { DJ } from './DJ.js';
 
 // ── Direcciones de movimiento ──────────────────────────────
 export const DIRECTION = {
@@ -44,7 +45,12 @@ export class Snake {
      * opuesta para que no haya colisión inmediata. Por defecto DIRECTION.RIGHT.
      * colors:    objeto con { head, body } para colorear la serpiente. Por defecto GREEN.
      */
-    constructor(stage, startX, startY, { wrap = false, direction = DIRECTION.RIGHT, colors = SNAKE_COLORS.GREEN, moveInterval } = {}) {
+    constructor(stage, startX, startY, {
+        wrap = false,
+        direction = DIRECTION.RIGHT,
+        colors = SNAKE_COLORS.GREEN,
+        moveInterval}
+    ) {
         /**
          * Array de segmentos, el índice 0 es la cabeza.
          * Cada segmento tiene:
@@ -115,6 +121,7 @@ export class Snake {
      * @returns {Graphics}
      */
     addSegmentGraphic(isHead) {
+
         const g = new Graphics();
 
         this.drawSegmentShape(g, isHead, this.direction);
@@ -208,20 +215,28 @@ export class Snake {
 
         if (this.dash && this.segments.length > 3) {
             this.moveInterval = 80;
-            this.dashTickCount++; 
+            this.dashTickCount++;
             // Cada 4 ticks exactos de movimiento pierde cola
             if (this.dashTickCount % 4 === 0) {
                 this.perderCola();
             }
-        } else if(this.wrap){
+        } else if (this.wrap) {
             this.moveInterval = 150;
             this.dashTickCount = 0;
         }
 
 
         if (this.directionQueue.length > 0) {
+
             this.direction = this.directionQueue.shift();
-            this.drawSegmentShape(this.segmentGraphics[0], true, this.direction);
+            switch (this.direction) {
+                case DIRECTION.UP: DJ.playSfx('move1'); break;
+                case DIRECTION.LEFT: DJ.playSfx('move2'); break;
+                case DIRECTION.RIGHT: DJ.playSfx('move3'); break;
+                case DIRECTION.DOWN: DJ.playSfx('move1'); break;
+                default: break;
+            }
+            this.updateHeadGraphicDirection();
         }
 
         const head = this.segments[0];
@@ -318,6 +333,7 @@ export class Snake {
         const tolerancia = 0.5;
 
         if (distSquared < tolerancia * tolerancia) {
+
             this.growSnake();
             return true;
         }
@@ -365,7 +381,6 @@ export class Snake {
 
 
     perderCola() {
-        console.log('cola perdida');
         this.segments.pop();
         const cola = this.segmentGraphics.pop();
         if (cola) {
@@ -388,6 +403,7 @@ export class Snake {
         for (let i = 0; i < this.segments.length; i++) {
             const seg = this.segments[i];
             const g = this.segmentGraphics[i];
+            const direction = this.getSegmentDirection(i);
 
             let renderX = seg.x;
             let renderY = seg.y;
@@ -409,6 +425,43 @@ export class Snake {
             // Interpolar la posición en píxeles
             g.x = renderX * CELL_SIZE + CELL_SIZE / 2;
             g.y = renderY * CELL_SIZE + CELL_SIZE / 2 + UI_HEIGHT;
+            this.updateSegmentGraphicDirection(g, direction, i === 0);
+        }
+    }
+
+    getSegmentDirection(index) {
+        if (index === 0) return this.direction;
+
+        const seg = this.segments[index];
+        const dx = this.normalizeMovementDelta(seg.x - seg.prevX);
+        const dy = this.normalizeMovementDelta(seg.y - seg.prevY);
+
+        if (dx !== 0 || dy !== 0) return { x: dx, y: dy };
+
+        const previousSeg = this.segments[index - 1];
+        if (!previousSeg) return this.direction;
+
+        return {
+            x: this.normalizeMovementDelta(previousSeg.x - seg.x),
+            y: this.normalizeMovementDelta(previousSeg.y - seg.y),
+        };
+    }
+
+    normalizeMovementDelta(delta) {
+        if (delta === 0) return 0;
+        if (Math.abs(delta) > 1) return -Math.sign(delta);
+        return Math.sign(delta);
+    }
+
+    updateHeadGraphicDirection() {
+        this.updateSegmentGraphicDirection(this.segmentGraphics[0], this.direction, true);
+    }
+
+    updateSegmentGraphicDirection(graphic, direction, isHead) {
+        if (!graphic) return;
+
+        if (graphic instanceof Graphics) {
+            if (isHead) this.drawSegmentShape(graphic, true, direction);
         }
     }
 

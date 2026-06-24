@@ -10,13 +10,15 @@ import { Menu } from './Menu.js';
 import { InputHandler } from './InputHandler.js';
 import { ObstacleManager } from './ObstacleManager.js';
 import { GRID_COLS, GRID_ROWS, CELL_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, UI_HEIGHT, LEVELS } from './Grid.js';
+import { DJ, SOUND_GROUP } from './DJ.js';
+
 
 const STATE = {
     PLAYING: 'playing',
     GAME_OVER: 'game_over',
     MENU: 'menu',
-    PAUSED: 'paused', 
-    READY: 'ready', 
+    PAUSED: 'paused',
+    READY: 'ready',
 };
 
 let nivelActual = 0;
@@ -29,8 +31,10 @@ export class Game {
         this.obstacleManager = new ObstacleManager();
         this.score = 0;
         this.score2 = 0;
-        this.isTwoPlayerMode = false; 
+        this.isTwoPlayerMode = false;
         this.pendingMode = null; // Guarda si eligió '1p' o '2p' en el menú
+
+
 
         this.timeSinceLastMove = 0;
 
@@ -46,9 +50,9 @@ export class Game {
     menu() { // Ciclo de vida
         this.clearScene();
         this.state = STATE.MENU;
-        
+
         document.getElementById('app').classList.remove('is-2p-mode');
-        
+
         this.leaderboard.currentUsername = ''; //Limpiar nombre antes de renderizar
         this.leaderboard.render();
         this.leaderboard.showNameInput(true);
@@ -82,7 +86,7 @@ export class Game {
     start() {
         this.levelScore = 0;
         this.clearScene();
-        
+
         document.getElementById('app').classList.remove('is-2p-mode');
 
         this.leaderboard.showNameInput(false);
@@ -100,7 +104,7 @@ export class Game {
         const startY = Math.floor(GRID_ROWS / 2);
 
         this.snake = new Snake(this.app.stage, startX, startY, {
-            moveInterval: LEVELS[this.level].moveInterval
+            moveInterval: LEVELS[this.level].moveInterval,
         });
 
         this.apple = new Apple(this.app.stage);
@@ -112,7 +116,7 @@ export class Game {
 
     start2P() {
         this.clearScene();
-        
+
         document.getElementById('app').classList.add('is-2p-mode');
 
         this.score = 0;
@@ -126,14 +130,24 @@ export class Game {
             this.app.stage,
             Math.floor(GRID_COLS / 6),
             Math.floor(GRID_ROWS / 6),
-            { wrap: true, direction: DIRECTION.RIGHT, colors: SNAKE_COLORS.RED, moveInterval: 150 }
+            {
+                wrap: true,
+                direction: DIRECTION.RIGHT,
+                colors: SNAKE_COLORS.RED,
+                moveInterval: 150,
+            }
         );
 
         this.snake2 = new Snake(
             this.app.stage,
             Math.floor(GRID_COLS * 4 / 5),
             Math.floor(GRID_ROWS * 4 / 5),
-            { wrap: true, direction: DIRECTION.LEFT, colors: SNAKE_COLORS.BLUE, moveInterval: 150 }
+            {
+                wrap: true,
+                direction: DIRECTION.LEFT,
+                colors: SNAKE_COLORS.BLUE,
+                moveInterval: 150,
+            }
         );
 
         this.apple = new Apple(this.app.stage);
@@ -141,6 +155,33 @@ export class Game {
 
         this.ui.updateScores(this.score, this.score2);
     }
+
+    createBackground() {
+        this.background = new Graphics();
+        this.background.zIndex = 1;
+
+        this.background.rect(0, UI_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.background.fill(0x0d1117);
+
+        for (let col = 0; col <= GRID_COLS; col++) {
+            const x = col * CELL_SIZE;
+            this.background.moveTo(x, UI_HEIGHT);
+            this.background.lineTo(x, UI_HEIGHT + CANVAS_HEIGHT);
+        }
+
+        for (let row = 0; row <= GRID_ROWS; row++) {
+            const y = row * CELL_SIZE + UI_HEIGHT;
+            this.background.moveTo(0, y);
+            this.background.lineTo(CANVAS_WIDTH, y);
+        }
+
+        this.background.stroke({ color: 0x1e2a3a, width: 1, alpha: 0.9 });
+        this.background.rect(0, UI_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.background.stroke({ color: 0x2ecc71, width: 2, alpha: 0.4 });
+
+        this.app.stage.addChildAt(this.background, 0);
+    }
+
 
     togglePause() {
         if (this.state === STATE.PLAYING) {
@@ -175,34 +216,10 @@ export class Game {
         this.menuScreen = null;
     }
 
-    createBackground() {
-        this.background = new Graphics();
-        this.background.zIndex = 1;
 
-        this.background.rect(0, UI_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT);
-        this.background.fill(0x0d1117);
-
-        for (let col = 0; col <= GRID_COLS; col++) {
-            const x = col * CELL_SIZE;
-            this.background.moveTo(x, UI_HEIGHT);
-            this.background.lineTo(x, UI_HEIGHT + CANVAS_HEIGHT);
-        }
-
-        for (let row = 0; row <= GRID_ROWS; row++) {
-            const y = row * CELL_SIZE + UI_HEIGHT;
-            this.background.moveTo(0, y);
-            this.background.lineTo(CANVAS_WIDTH, y);
-        }
-
-        this.background.stroke({ color: 0x1e2a3a, width: 1, alpha: 0.9 });
-        this.background.rect(0, UI_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT);
-        this.background.stroke({ color: 0x2ecc71, width: 2, alpha: 0.4 });
-
-        this.app.stage.addChildAt(this.background, 0);
-    }
 
     update(ticker) { // Game Loop
-        if (this.state !== STATE.PLAYING) return; 
+        if (this.state !== STATE.PLAYING) return;
 
         this.snake.updateTick(ticker.deltaMS);
         if (this.snake2) {
@@ -220,11 +237,13 @@ export class Game {
             let ate2 = false;
 
             if (this.snake.checkCollisionApple(this.apple, p1)) {
+                DJ.playSfx('eat');
                 ate1 = true;
                 this.score++;
                 this.levelScore++;
             }
             if (this.snake2 && this.snake2.checkCollisionApple(this.apple, p2)) {
+                DJ.playSfx('eat');
                 ate2 = true;
                 this.score2++;
             }
@@ -237,13 +256,19 @@ export class Game {
                     this.ui.updateScore(this.score);
 
                     const nextLevel = this.level + 1;
+                    if (this.level == 4) {
+                        if (this.levelScore >= LEVELS[this.level].applesRequired) {
+                            DJ.playSfx('win');
+                            this.state = STATE.GAME_OVER;
+                            this.ui.showGameWin(this.score);
+                            return;
+                        }
+                    }
                     if (this.levelScore >= LEVELS[this.level].applesRequired) {
+                        DJ.playSfx('levelup');
                         this.level = nextLevel;
                         this.levelScore = 0;
                         this.snake.moveInterval = LEVELS[this.level].moveInterval;
-                    }
-                    if (this.snake.segments.length == GRID_COLS * GRID_ROWS) {
-                        this.state = STATE.GAME_OVER;
                     }
 
                     this.ui.updateLevel(this.level + 1, this.levelScore, LEVELS[this.level].applesRequired);
@@ -329,11 +354,13 @@ export class Game {
 
         if (this.snake.checkCollision(GRID_COLS, GRID_ROWS, false, obstacleSegs, p1)) {
             this.state = STATE.GAME_OVER;
-            
+
             this.obstacleManager.clearAll();
 
             this.leaderboard.saveScore(this.score);
-            this.ui.showGameOver(this.score); 
+            this.ui.showGameOver(this.score);
+            DJ.playSfx('gameOver');
+
         }
     }
 
@@ -343,7 +370,7 @@ export class Game {
         this.isTwoPlayerMode = isTwoPlayer;
 
         document.getElementById('app').classList.toggle('is-2p-mode', isTwoPlayer); // Mostrar/Ocultar elementos según el modo
-        
+
         // En 1P mostramos el leaderboard de fondo, en 2P lo ocultamos (CSS se encarga si tiene la clase is-2p-mode)
         if (!isTwoPlayer) {
             this.leaderboard.render();
@@ -351,18 +378,33 @@ export class Game {
         }
 
         this.ui = new UI(this.app.stage, isTwoPlayer, this); //UI temporal para mostrar overlay de inicio
+        if(window.innerHeight > 950){
+            this.ui.showStartOverlay(true, 'desktop');
+        }else{
+            this.ui.showStartOverlay(true, 'movil');
+        }
         this.ui.showStartOverlay(true);
-        
+
         this.createBackground();
     }
 
-    startPendingGame() {  //Se ejecuta al detectar cualquier input en estado READY
+    async startPendingGame() {  //Se ejecuta al detectar cualquier input en estado READY
         if (this.state !== STATE.READY) return;
+        if (this.isStartingGame) return;
+
+        this.isStartingGame = true;
+
+        if (this.state !== STATE.READY) {
+            this.isStartingGame = false;
+            return;
+        }
+
         if (this.pendingMode === '2p') {
             this.start2P();
         } else {
             this.start();
         }
+        this.isStartingGame = false;
     }
 
     destroy() {

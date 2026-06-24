@@ -1,32 +1,68 @@
 /* ============================================================
+   VARIABLES DE TEMA
+   ============================================================ */
+:root {
+    /* Tema Claro (Gamas grisáceas y limpias, sin blanco puro) */
+    --bg-color: #d4d4d4;
+    --surface: #dddddd;
+    --surface-input: #e1e4e8;
+    --surface-row: #f6f8fa;
+    --text: #1f2328;
+    --text-muted: #57606a;
+    --border: #2ecc71;
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark {
+    /* Tema Oscuro (Tus colores originales) */
+    --bg-color: #0d1117;
+    --surface: #1a1a2e;
+    --surface-input: #1e2a3a;
+    --surface-row: #10141d;
+    --text: #ffffff;
+    --text-muted: #7f8c8d;
+    --border: #2ecc71;
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================
    RESET Y BASES
    ============================================================ */
 * { box-sizing: border-box; }
 
 body {
-    background-color: #0d1117;
+    background-color: var(--bg-color);
+    color: var(--text);
     margin: 0;
     padding: 0;
     font-family: 'Arial', sans-serif;
     height: 100vh;
     width: 100vw;
-    overflow: hidden; 
     touch-action: none; 
+    transition: var(--transition);
 }
 
 /* ============================================================
    LAYOUT PRINCIPAL (Mobile First)
    ============================================================ */
 #app {
-    display: flex;
-    flex-direction: column; 
-    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Definimos explícitamente 4 filas adaptables */
+    grid-template-rows: auto auto auto auto; 
+    grid-template-areas:
+        "menu"
+        "dashButtons"
+        "leaderboard"
+        "controls";  
+    gap: 16px;
     width: 100%;
+    align-items: center;
 }
 
 #pixi-container {
-    flex: 1;
-    min-height: 0;
+    grid-area: menu; 
     position: relative;
     width: 100%;
     container-type: inline-size; 
@@ -38,12 +74,11 @@ body {
 
 /* Caja de Leaderboard (Inyectada por JS) */
 #leaderboard-container {
+    grid-area: leaderboard; 
     width: 100%;
-    color: #ffffff;
-    max-height: 200px; 
-    overflow-y: auto;  
-    flex-shrink: 0;
+    color: var(--text);
     padding: 10px;
+    transition: var(--transition);
 }
 
 /* ============================================================
@@ -53,17 +88,17 @@ body {
 
 /* En 2P siempre se oculta el leaderboard */
 #app.is-2p-mode #leaderboard-container { display: none !important; }
-/* Los botones de dash se controlan de forma independiente más abajo */
 
 
 /* ============================================================
    BOTONES DE DASH (2 JUGADORES)
    ============================================================ */
 #dash-buttons-container {
-    display: none; 
-    flex-direction: column; 
-    width: 80px; 
-    height: 100%; 
+    display: none; /* Oculto por defecto en 1P */
+    grid-area: dashButtons; /* Asignado a su área correspondiente en móvil */
+    width: 100%;
+    height: 80px; 
+    flex-direction: row; 
     flex-shrink: 0;
 }
 
@@ -93,75 +128,80 @@ body {
     transform: scale(0.95);
 }
 
-.p1-color { background-color: #e74c3c; border-radius: 8px 8px 0 0; }
-.p2-color { background-color: #3498db; border-radius: 0 0 8px 8px; }
+/* Bordes redondeados para formato horizontal (Móvil) */
+.p1-color { background-color: #e74c3c; border-radius: 8px 0 0 8px; }
+.p2-color { background-color: #3498db; border-radius: 0 8px 8px 0; }
 
-/* --- Responsive Móvil para los botones --- */
+/* --- Responsive Móvil para modo 2P --- */
 @media (max-width: 949px) {
-    /* MOSTRAR BOTONES SOLO EN MÓVIL SI ES MODO 2P */
     #app.is-2p-mode #dash-buttons-container { 
         display: flex !important; 
     }
 
     #app.is-2p-mode #pixi-container {
-        flex: 0 0 auto; /* SOLUCIÓN: Impide que Flexbox estire el canvas para llenar el espacio */
         max-height: calc(95vh - 80px); 
         max-width: calc((95vh - 80px) * (600 / 650)); 
     }
-
-    #dash-buttons-container {
-        width: 100%;
-        height: 80px; 
-        flex-direction: row; 
-        order: 2; 
-        flex-shrink: 0;
-    }
-    .p1-color { border-radius: 8px 0 0 8px; } 
-    .p2-color { border-radius: 0 8px 8px 0; } 
 }
 
 /* ============================================================
-   ESTILOS DEL LEADERBOARD
+   ESTILOS DEL LEADERBOARD Y CONTROLES
    ============================================================ */
 .leaderboard-box {
     display: flex;
     flex-direction: column;
-    background-color: #1a1a2e;
-    border: 2px solid #2ecc71;
+    background-color: var(--surface);
+    border: 2px solid var(--border);
     border-radius: 8px;
     padding: 15px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
 }
 
 .leaderboard-box h2 {
-    color: #2ecc71;
+    color: var(--border);
     font-size: 20px;
     margin-top: 0;
     text-align: center;
-    border-bottom: 1px solid #1e2a3a;
+    border-bottom: 1px solid var(--surface-input);
     padding-bottom: 10px;
+    transition: var(--transition);
+}
+
+.leaderboard-box p {
+    color: var(--text);
+}
+
+.control-section .control-title {
+    font-weight: bold;
+    color: var(--border);
+    margin-top: 10px;
+    margin-bottom: 5px;
 }
 
 .input-section {
-    background: #1e2a3a;
+    background: var(--surface-input);
     padding: 10px;
     border-radius: 6px;
     margin-bottom: 15px;
     text-align: center;
+    transition: var(--transition);
 }
-.input-section p { margin: 0 0 8px 0; font-size: 13px; color: #7f8c8d; }
+.input-section p { margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted); transition: var(--transition); }
+
 #player-name-input {
     width: 75%;
     padding: 6px;
     margin-bottom: 12px;
-    border: 1px solid #7f8c8d;
-    background-color: #0d1117;
-    color: white;
+    border: 1px solid var(--text-muted);
+    background-color: var(--bg-color);
+    color: var(--text);
     border-radius: 4px;
+    transition: var(--transition);
 }
 #save-name-btn {
     padding: 6px 10px;
-    background: #2ecc71;
+    background: var(--border);
     border: none;
     color: #0d1117;
     font-weight: bold;
@@ -169,38 +209,24 @@ body {
     cursor: pointer;
 }
 .error-msg { color: #e74c3c; font-size: 11px; margin: 5px 0 0 0 !important; }
-.welcome-user { text-align: center; font-size: 14px; margin-bottom: 15px; color: #ecf0f1;}
+.welcome-user { text-align: center; font-size: 14px; margin-bottom: 15px; color: var(--text); transition: var(--transition); }
 
 .scores-list { display: flex; flex-direction: column; gap: 8px; }
 .leaderboard-row {
     display: flex;
     justify-content: space-between;
-    background: #10141d;
+    background: var(--surface-row);
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 14px;
     align-items: center;
+    transition: var(--transition);
 }
-.leaderboard-row.current-player { border-left: 3px solid #2ecc71; background: #1e2a3a; }
-.rank { color: #7f8c8d; width: 30px; }
+.leaderboard-row.current-player { border-left: 3px solid var(--border); background: var(--surface-input); }
+.rank { color: var(--text-muted); width: 30px; transition: var(--transition); }
 .name { flex-grow: 1; font-weight: bold; }
-.score { color: #2ecc71; }
-.no-scores { text-align: center; color: #7f8c8d; font-size: 14px; padding: 10px; }
-
-.delete-score-btn {
-    background: transparent;
-    border: none;
-    color: #e74c3c;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 0 0 0 10px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    transition: color 0.2s, transform 0.1s;
-}
-.delete-score-btn:hover { color: #c0392b; transform: scale(1.2); }
+.score { color: var(--border); transition: var(--transition); }
+.no-scores { text-align: center; color: var(--text-muted); font-size: 14px; padding: 10px; transition: var(--transition); }
 
 /* ============================================================
    RESPONSIVE: Escritorio (Horizontal a partir de 950px)
@@ -213,18 +239,17 @@ body {
     }
 
     #app {
-        flex-direction: row; 
-        align-items: flex-start;
-        height: auto;
-        gap: 20px;
-        padding: 20px;
-        width: max-content; 
-        max-width: 100vw;
+        grid-template-columns: 0.6fr 1fr 0.6fr;
+        grid-template-rows: 1fr;
+        grid-template-areas: "controls menu leaderboard"; 
+        align-items: center;
+        height: 100%;
+        justify-items: center;
+        max-height: 100vh;
     }
 
     #pixi-container {
         height: 90vh;
-        flex-shrink: 0;
     }
 
     #leaderboard-container {
@@ -232,8 +257,19 @@ body {
         max-height: 90vh; 
         overflow-y: auto;  
         padding: 0 10px 0 0; 
-        flex-shrink: 0;
     }
+
+    #dash-buttons-container {
+        grid-area: controls; /* Cambia a la columna izquierda en PC */
+        display: flex; 
+        width: 80px;
+        height: 100%;
+        flex-direction: column;
+    }
+
+    /* Bordes redondeados para formato vertical (PC) */
+    .p1-color { border-radius: 8px 8px 0 0; }
+    .p2-color { border-radius: 0 0 8px 8px; }
 
     .leaderboard-box h2 {
         border-bottom: none; 
@@ -253,7 +289,6 @@ body {
     height: 100%;
     pointer-events: none;
     z-index: 10;
-    font-family: 'Arial', sans-serif;
 }
 
 #ui-layer button, #ui-layer .overlay { pointer-events: auto; }
@@ -262,18 +297,19 @@ body {
     display: none; 
     height: 7.69%; 
     width: 100%;
-    background-color: #1a1a2e;
-    border-bottom: 0.33cqw solid #2ecc71; 
+    background-color: var(--surface);
+    border-bottom: 0.33cqw solid var(--border); 
     align-items: center;
     justify-content: space-between;
     padding: 0 2.5cqw;
-    color: white;
+    color: var(--text);
     box-sizing: border-box;
+    transition: var(--transition);
 }
 
 #score-text { font-size: 3.6cqw; font-weight: bold; white-space: nowrap; } 
-#level-text { font-size: 2.6cqw; font-weight: bold; color: #2ecc71; white-space: nowrap; }
-#help-text { font-size: 3cqw; color: #7f8c8d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1cqw;}
+#level-text { font-size: 2.6cqw; font-weight: bold; color: var(--border); white-space: nowrap; transition: var(--transition); }
+#help-text { font-size: 3cqw; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1cqw; transition: var(--transition); }
 
 .overlay {
     position: absolute;
@@ -298,7 +334,7 @@ body {
 .title-win { color: #F5D327; font-size: 8cqw; margin: 0 0 3cqw 0; text-shadow: 0.5cqw 0.5cqw 0px #000; }
 .title-pause { color: #3498db; font-size: 6.3cqw; margin: 0 0 3cqw 0; text-shadow: 0.5cqw 0.5cqw 0px #000; }
 
-.overlay p { font-size: 2.6cqw; margin: 1cqw 0; line-height: 1.4; }
+.overlay p { font-size: 2.6cqw; margin: 1cqw 0; line-height: 1.4; color: white; }
 .sub-text { color: #95a5a6; margin-top: 3cqw !important; }
 
 .btn-danger {
@@ -335,5 +371,98 @@ body {
 #touch-zone-p2 { bottom: 0; }
 
 #app.is-2p-mode #pixi-container .touch-zone {
+    display: block;
+}
+
+/* ============================================================
+   FILTRO DE CONTENEDORES (PC vs MÓVIL) EN OVERLAY DE INICIO
+   ============================================================ */
+
+/* Por defecto ocultamos ambos para controlar su muestra */
+.start-controls-pc,
+.start-controls-mobile {
+    display: none;
+}
+
+/* --- Reglas basadas en la clase inyectada por JS --- */
+#overlay-start.desktop .start-controls-pc {
+    display: block;
+}
+
+#overlay-start.movil .start-controls-mobile {
+    display: block;
+}
+
+/* --- Reglas Responsivas nativas (Por si cambia el tamaño de pantalla) --- */
+@media (min-width: 950px) {
+    /* En pantallas grandes, forzar visualización de PC si no se definió por JS */
+    #overlay-start:not(.movil) .start-controls-pc {
+        display: block;
+    }
+    #overlay-start:not(.movil) .start-controls-mobile {
+        display: none;
+    }
+}
+
+@media (max-width: 949px) {
+    /* En pantallas chicas, forzar visualización de móvil si no se definió por JS */
+    #overlay-start:not(.desktop) .start-controls-mobile {
+        display: block;
+    }
+    #overlay-start:not(.desktop) .start-controls-pc {
+        display: none;
+    }
+}
+
+/* ============================================================
+   BOTÓN FLOTANTE DE CAMBIO DE TEMA
+   ============================================================ */
+#toggle-tema {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    background-color: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition), transform 0.1s ease;
+    z-index: 100;
+}
+
+#toggle-tema:hover {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+    transform: scale(1.08);
+}
+
+#toggle-tema:active {
+    transform: scale(0.92);
+}
+
+#toggle-tema svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    flex-shrink: 0;
+}
+
+/* Modo claro → mostrar luna (invita a cambiar a oscuro) */
+body:not(.dark) .icon-sun {
+    display: none;
+}
+body:not(.dark) .icon-moon {
+    display: block;
+}
+
+/* Modo oscuro → mostrar sol (invita a cambiar a claro) */
+body.dark .icon-moon {
+    display: none;
+}
+body.dark .icon-sun {
     display: block;
 }

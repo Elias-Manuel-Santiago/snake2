@@ -43,9 +43,13 @@ export class InputHandler {
             if (g.state !== 'playing') return;
 
             switch (e.code) {
+                case 'ArrowUp':
                 case 'KeyW': g.snake.setDirection(DIRECTION.UP); break;
+                case 'ArrowDown':
                 case 'KeyS': g.snake.setDirection(DIRECTION.DOWN); break;
+                case 'ArrowLeft':
                 case 'KeyA': g.snake.setDirection(DIRECTION.LEFT); break;
+                case 'ArrowRight':
                 case 'KeyD': g.snake.setDirection(DIRECTION.RIGHT); break;
                 case 'ShiftLeft': 
                     if (g.isTwoPlayerMode) g.snake.dash = true; // Solo activa dash en PC (modo 2P)                
@@ -54,10 +58,10 @@ export class InputHandler {
 
             if (g.snake2) {
                 switch (e.code) {
-                    case 'KeyI': g.snake2.setDirection(DIRECTION.UP); break;
-                    case 'KeyK': g.snake2.setDirection(DIRECTION.DOWN); break;
-                    case 'KeyJ': g.snake2.setDirection(DIRECTION.LEFT); break;
-                    case 'KeyL': g.snake2.setDirection(DIRECTION.RIGHT); break;
+                    case 'ArrowUp': g.snake2.setDirection(DIRECTION.UP); break;
+                    case 'ArrowDown': g.snake2.setDirection(DIRECTION.DOWN); break;
+                    case 'ArrowLeft': g.snake2.setDirection(DIRECTION.LEFT); break;
+                    case 'ArrowRight': g.snake2.setDirection(DIRECTION.RIGHT); break;
                     case 'KeyB': g.snake2.dash = true; break;
                 }
             }

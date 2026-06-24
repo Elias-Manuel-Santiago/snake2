@@ -16,36 +16,65 @@ export class ObstacleSnake {
 
         this.segmentGraphics = [];
         this.direction = null;
-        this.moveInterval = 100; // Velocidad fija a la que cruzan
+        this.moveInterval = 80; // Velocidad fija a la que cruzan
         this.timeSinceLastMove = 0;
         this.currentProgress = 0;
         this.isAlive = true;
         this.hasEnteredMap = false; // Evita que se destruya al nacer
 
-        this.length = Math.floor(Math.random() * 4) + 3; // Longitud aleatoria entre 3 y 6
+        this.spawnX = 0;
+        this.spawnY = 0;
+        this.axis = 'horizontal'; // 'horizontal' o 'vertical'
+        this.lineIndex = 0;       // Qué fila o columna ocupará
+
+        this.length = Math.floor(Math.random() * (12 - 8 + 1) + 8); // Longitud aleatoria entre 8 y 12
         this.color = 0x9b59b6; // Color morado para los obstáculos
         this.headColor = 0x8e44ad;
 
-        this.spawn();
+        this.precalculateRoute();
     }
 
-    /** Genera la serpiente en un borde aleatorio */
-    spawn() {
-        const edge = Math.floor(Math.random() * 4); 
-        let startX, startY;
+    precalculateRoute() {
+        const edge = Math.floor(Math.random() * 4);
 
         switch (edge) {
-            case 0: startX = Math.floor(Math.random() * GRID_COLS); startY = 0; this.direction = DIRECTION.DOWN; break;
-            case 1: startX = Math.floor(Math.random() * GRID_COLS); startY = GRID_ROWS - 1; this.direction = DIRECTION.UP; break;
-            case 2: startX = 0; startY = Math.floor(Math.random() * GRID_ROWS); this.direction = DIRECTION.RIGHT; break;
-            case 3: startX = GRID_COLS - 1; startY = Math.floor(Math.random() * GRID_ROWS); this.direction = DIRECTION.LEFT; break;
+            case 0: // Desde arriba hacia abajo
+                this.spawnX = Math.floor(Math.random() * GRID_COLS);
+                this.spawnY = 0;
+                this.direction = DIRECTION.DOWN;
+                this.axis = 'vertical';
+                this.lineIndex = this.spawnX;
+                break;
+            case 1: // Desde abajo hacia arriba
+                this.spawnX = Math.floor(Math.random() * GRID_COLS);
+                this.spawnY = GRID_ROWS - 1;
+                this.direction = DIRECTION.UP;
+                this.axis = 'vertical';
+                this.lineIndex = this.spawnX;
+                break;
+            case 2: // Desde la izquierda a la derecha
+                this.spawnX = 0;
+                this.spawnY = Math.floor(Math.random() * GRID_ROWS);
+                this.direction = DIRECTION.RIGHT;
+                this.axis = 'horizontal';
+                this.lineIndex = this.spawnY;
+                break;
+            case 3: // Desde la derecha a la izquierda
+                this.spawnX = GRID_COLS - 1;
+                this.spawnY = Math.floor(Math.random() * GRID_ROWS);
+                this.direction = DIRECTION.LEFT;
+                this.axis = 'horizontal';
+                this.lineIndex = this.spawnX; // Corrección semántica interna
+                this.lineIndex = this.spawnY;
+                break;
         }
+    }
 
+    spawn() {
         for (let i = 0; i < this.length; i++) {
-            let x = startX - this.direction.x * i;
-            let y = startY - this.direction.y * i;
+            let x = this.spawnX - this.direction.x * i;
+            let y = this.spawnY - this.direction.y * i;
 
-            // Limitar la posición para que NINGÚN segmento se genere fuera del mapa
             x = Math.max(0, Math.min(GRID_COLS - 1, x));
             y = Math.max(0, Math.min(GRID_ROWS - 1, y));
 
@@ -74,7 +103,7 @@ export class ObstacleSnake {
         this.currentProgress = this.timeSinceLastMove / this.moveInterval;
     }
 
-         move() {
+    move() {
         // Guardar posiciones previas
         for (const seg of this.segments) {
             seg.prevX = seg.x;
@@ -93,8 +122,8 @@ export class ObstacleSnake {
 
         // Lógica de destrucción simplificada: 
         // Si la cabeza sale del mapa por el lado opuesto, se destruye.
-        const head = this.segments[0];
-        if (head.x < -1 || head.x >= GRID_COLS + 1 || head.y < -1 || head.y >= GRID_ROWS + 1) {
+        const tail = this.segments[this.segments.length - 1];
+        if (tail.x < -1 || tail.x >= GRID_COLS + 1 || tail.y < -1 || tail.y >= GRID_ROWS + 1) {
             this.isAlive = false;
         }
     }
@@ -104,6 +133,7 @@ export class ObstacleSnake {
         for (let i = 0; i < this.segments.length; i++) {
             const seg = this.segments[i];
             const g = this.segmentGraphics[i];
+            const direction = this.getSegmentDirection(i);
 
             const renderX = lerp(seg.prevX, seg.x, this.currentProgress);
             const renderY = lerp(seg.prevY, seg.y, this.currentProgress);
@@ -111,6 +141,29 @@ export class ObstacleSnake {
             g.x = renderX * CELL_SIZE + CELL_SIZE / 2;
             g.y = renderY * CELL_SIZE + CELL_SIZE / 2 + UI_HEIGHT;
         }
+    }
+
+    getSegmentDirection(index) {
+        if (index === 0) return this.direction;
+
+        const seg = this.segments[index];
+        const dx = this.normalizeMovementDelta(seg.x - seg.prevX);
+        const dy = this.normalizeMovementDelta(seg.y - seg.prevY);
+
+        if (dx !== 0 || dy !== 0) return { x: dx, y: dy };
+
+        const previousSeg = this.segments[index - 1];
+        if (!previousSeg) return this.direction;
+
+        return {
+            x: this.normalizeMovementDelta(previousSeg.x - seg.x),
+            y: this.normalizeMovementDelta(previousSeg.y - seg.y),
+        };
+    }
+
+    normalizeMovementDelta(delta) {
+        if (delta === 0) return 0;
+        return Math.sign(delta);
     }
 
     /** Para obtener su posición interpolada exacta si hay colisión */

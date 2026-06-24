@@ -61,8 +61,8 @@ export function gridToPixelCenter(gridX, gridY) {
  */
 export const LEVELS = [
     { level: 1, applesRequired: 2, moveInterval: 170, obstacleInterval: Infinity },
-    { level: 2, applesRequired: 15, moveInterval: 155, obstacleInterval: 15000 },
-    { level: 3, applesRequired: 25, moveInterval: 130, obstacleInterval: 10000 },
-    { level: 4, applesRequired: 35, moveInterval: 90, obstacleInterval: 6500 }, 
-    { level: 5, applesRequired: Infinity, moveInterval: 70, obstacleInterval: 4000 }, 
+    { level: 2, applesRequired: 10, moveInterval: 155, obstacleInterval: 15000 },
+    { level: 3, applesRequired: 15, moveInterval: 130, obstacleInterval: 10000 },
+    { level: 4, applesRequired: 20, moveInterval: 90, obstacleInterval: 6500 }, 
+    { level: 5, applesRequired: 25, moveInterval: 70, obstacleInterval: 4000 }, 
 ];

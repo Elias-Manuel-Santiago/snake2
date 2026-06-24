@@ -74,7 +74,6 @@ export class Leaderboard {
                 <span class="rank">#${index + 1}</span>
                 <span class="name">${entry.name}</span>
                 <span class="score">🍎 ${entry.score}</span>
-                <button class="delete-score-btn" data-index="${index}" title="Borrar puntaje">×</button>
             </div>
         `).join('');
 
